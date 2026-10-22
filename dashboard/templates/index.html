@@ -400,6 +400,88 @@
                     <!-- Populated dynamically -->
                 </div>
             </div>
+
+            <!-- 200+ Employee Daily Productivity & Violation Reports Grid -->
+            <div class="glass-panel p-6 space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>👥</span> Employee Daily Activity & Compliance Audits (200+ Capacity)
+                        </h3>
+                        <p class="text-xs text-slate-400">Complete daily breakdown of active work hours, idle durations, violation counts, and forensic timelines.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Date Selector -->
+                        <div class="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                            <span class="text-xs text-slate-400">📅 Date:</span>
+                            <input type="date" id="report-date-input" class="bg-transparent text-xs text-slate-200 border-none focus:outline-none mono-font" onchange="onReportDateChanged()" />
+                        </div>
+
+                        <!-- Department Filter -->
+                        <select id="report-dept-filter" onchange="filterEmployeeReports()" class="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500">
+                            <option value="all">All Departments</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Language Experts">Language Experts</option>
+                            <option value="Drafting">Drafting</option>
+                            <option value="Social Media">Social Media</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Engineering">Engineering</option>
+                        </select>
+
+                        <!-- Search Box -->
+                        <input type="text" id="report-search-input" oninput="filterEmployeeReports()" placeholder="Search employee, ID, PC..." class="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500 w-44" />
+
+                        <!-- Export CSV Button -->
+                        <button onclick="exportReportsCSV()" class="flex items-center space-x-1.5 bg-emerald-700/80 hover:bg-emerald-600 border border-emerald-500/50 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition shadow-sm cursor-pointer">
+                            <span>📥</span>
+                            <span>Export CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Daily Aggregated KPI Summary -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-400 text-[11px] block">Monitored Personnel</span>
+                        <span id="rep-kpi-total-emp" class="text-lg font-bold text-white mono-font">0</span>
+                    </div>
+                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-400 text-[11px] block">Total Productive Active Time</span>
+                        <span id="rep-kpi-total-active" class="text-lg font-bold text-emerald-400 mono-font">0h 00m</span>
+                    </div>
+                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-400 text-[11px] block">Total Flagged Violations</span>
+                        <span id="rep-kpi-total-viols" class="text-lg font-bold text-rose-400 mono-font">0</span>
+                    </div>
+                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-1">
+                        <span class="text-slate-400 text-[11px] block">Fleet Productivity Index</span>
+                        <span id="rep-kpi-avg-score" class="text-lg font-bold text-indigo-400 mono-font">100%</span>
+                    </div>
+                </div>
+
+                <!-- Daily Reports Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-800">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-950/90 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px]">
+                                <th class="p-3">Employee & ID</th>
+                                <th class="p-3">Workstation</th>
+                                <th class="p-3">Department</th>
+                                <th class="p-3">Active Work Time</th>
+                                <th class="p-3">Idle Time</th>
+                                <th class="p-3">Violation Time</th>
+                                <th class="p-3">Violations</th>
+                                <th class="p-3">Productivity</th>
+                                <th class="p-3 text-right">Forensic Audit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="daily-reports-tbody" class="divide-y divide-slate-800/60 bg-slate-900/40 text-slate-300">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <!-- =============================================================== -->
@@ -919,6 +1001,45 @@
                         <p class="text-slate-400 text-[10px]">Run this command in Windows PowerShell on the target laptop to install, configure autostart on Windows logon, and run silently:</p>
                         <pre id="modal-powershell-cmd" class="bg-slate-900 p-2.5 rounded-lg mono-font text-[10px] text-emerald-300 overflow-x-auto select-all border border-slate-800">powershell -Command "mkdir 'C:\ProgramData\AnuvadiniDetector' -Force; Invoke-WebRequest -Uri 'http://{{ server_lan_ip }}:{{ server_port }}/download/ApexMonitor.exe' -OutFile 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe'; Invoke-WebRequest -Uri 'http://{{ server_lan_ip }}:{{ server_port }}/download/app_config.json?host={{ server_lan_ip }}&port={{ server_port }}&department=Engineering' -OutFile 'C:\ProgramData\AnuvadiniDetector\app_config.json'; schtasks /create /tn 'AnuvadiniAgent' /tr 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe' /sc onlogon /rl highest /f; Start-Process 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe'"</pre>
                     </div>
+                </div>
+            </div>
+    <!-- Employee Audit Trail Drawer / Modal -->
+    <div id="employee-audit-modal" onclick="if(event.target === this) closeEmployeeAuditModal()" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold">
+                        📋
+                    </div>
+                    <div>
+                        <h3 id="ea-modal-title" class="text-sm font-bold text-white">Employee Violation Audit Trail</h3>
+                        <p id="ea-modal-subtitle" class="text-[11px] text-slate-400">Chronological violation log and duration analysis</p>
+                    </div>
+                </div>
+                <button onclick="closeEmployeeAuditModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-4 text-xs">
+                <!-- Summary bar -->
+                <div class="grid grid-cols-3 gap-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Total Incidents</span>
+                        <span id="ea-modal-total-count" class="font-bold text-white text-sm mono-font">0</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Cumulative Lost Time</span>
+                        <span id="ea-modal-total-duration" class="font-bold text-rose-400 text-sm mono-font">0m 00s</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Audit Date</span>
+                        <span id="ea-modal-date" class="font-bold text-slate-300 text-sm mono-font">Today</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2" id="ea-modal-violations-list">
+                    <!-- Populated dynamically -->
                 </div>
             </div>
         </div>

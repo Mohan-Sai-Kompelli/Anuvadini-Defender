@@ -8,6 +8,7 @@ import asyncio
 import base64
 import socket
 import csv
+import datetime
 import io
 import json
 import os
@@ -37,7 +38,8 @@ from core.signatures import (
 from core.database import (
     init_db, seed_demo_fleet_if_empty, record_activity_and_violation,
     get_hourly_analytics, get_fleet_health_score, get_top_games,
-    queue_remote_command, fetch_pending_commands, get_connection
+    queue_remote_command, fetch_pending_commands, get_connection,
+    get_daily_employee_reports, get_employee_audit_trail, upsert_employee, list_employees
 )
 from core.engine import ShiftScheduler
 from core.nvidia_nim import NvidiaNimVisionAuditor, NIM_MODELS
@@ -478,6 +480,83 @@ async def api_fleet_health():
 async def api_top_games():
     """Returns top unauthorized game activities across company."""
     return JSONResponse(get_top_games())
+
+# ============================================================================
+# 3b. 200+ Employee Daily Reports & Audit Infrastructure
+# ============================================================================
+@app.get("/api/reports/daily")
+async def api_daily_employee_reports(date: Optional[str] = Query(None)):
+    """
+    Returns full daily productivity, active time, idle time, and violation metrics
+    for all 200+ employees and workstations across departments.
+    """
+    target_date = date or datetime.date.today().isoformat()
+    reports = get_daily_employee_reports(target_date)
+    return JSONResponse({
+        "success": True,
+        "date": target_date,
+        "total_employees": len(reports),
+        "reports": reports
+    })
+
+@app.get("/api/reports/employee/{workstation_id}")
+async def api_employee_audit_trail(workstation_id: str, date: Optional[str] = Query(None)):
+    """
+    Returns detailed audit trail of every violation, process name, and exact timeline
+    for a specific employee/workstation on a specific date.
+    """
+    target_date = date or datetime.date.today().isoformat()
+    audit = get_employee_audit_trail(workstation_id, target_date)
+    return JSONResponse(audit)
+
+@app.get("/api/reports/export/csv")
+async def export_daily_reports_csv(date: Optional[str] = Query(None)):
+    """Exports full enterprise daily employee attendance & productivity report as CSV."""
+    target_date = date or datetime.date.today().isoformat()
+    reports = get_daily_employee_reports(target_date)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Employee Code", "Employee Name", "Workstation ID", "Department",
+        "Designation", "Date", "Active Work Time", "Idle Time",
+        "Total Violation Time", "Violations Count", "Productivity Score (%)", "Current Status"
+    ])
+    for r in reports:
+        writer.writerow([
+            r["employee_id"], r["employee_name"], r["workstation_id"],
+            r["department"], r["designation"], r["date"],
+            r["active_formatted"], r["idle_formatted"], r["violation_formatted"],
+            r["violations_count"], f"{r['productivity_score']}%", r["status"]
+        ])
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=Anuvadini_Daily_Employee_Report_{target_date}.csv"}
+    )
+
+@app.get("/api/employees")
+async def api_list_employees():
+    """Lists all registered employees in directory."""
+    return JSONResponse({"employees": list_employees()})
+
+@app.post("/api/employees")
+async def api_create_employee(payload: dict = Body(...)):
+    """Creates or updates employee mapping."""
+    emp_id = payload.get("id") or f"EMP-{int(time.time()) % 100000}"
+    name = payload.get("name", "")
+    if not name:
+        raise HTTPException(status_code=400, detail="Employee name required")
+    res = upsert_employee(
+        emp_id=emp_id,
+        name=name,
+        email=payload.get("email", ""),
+        department=payload.get("department", "Technology"),
+        designation=payload.get("designation", "Software Engineer"),
+        workstation_id=payload.get("workstation_id", "")
+    )
+    return JSONResponse(res)
 
 # ============================================================================
 # 4. Remote IT Actions & Commands (Fixes known Action vs Type bug!)

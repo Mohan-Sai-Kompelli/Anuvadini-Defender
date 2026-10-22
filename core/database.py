@@ -4,6 +4,7 @@ Manages 7 core tables, duration accumulation, open violation de-duplication,
 hourly breakdown analytics (08:00–19:00), fleet health scoring, and 16-station demo seeding.
 """
 
+import datetime
 import json
 import os
 import random
@@ -143,11 +144,46 @@ def init_db():
         )
     """)
 
+    # 8. Employees Master Directory table
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS employees (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT,
+            department TEXT DEFAULT 'Technology',
+            designation TEXT DEFAULT 'Software Engineer',
+            workstation_id TEXT,
+            avatar_url TEXT,
+            created_at REAL
+        )
+    """)
+
+    # 9. Daily Employee Activity & Productivity Summaries
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS daily_employee_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workstation_id TEXT NOT NULL,
+            employee_id TEXT,
+            username TEXT,
+            date TEXT NOT NULL,
+            active_seconds INTEGER DEFAULT 0,
+            idle_seconds INTEGER DEFAULT 0,
+            violation_seconds INTEGER DEFAULT 0,
+            violations_count INTEGER DEFAULT 0,
+            productivity_score REAL DEFAULT 100.0,
+            last_updated REAL,
+            UNIQUE(workstation_id, date)
+        )
+    """)
+
     # Create Indexes for high-throughput queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_violations_station ON violations(workstation_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_violations_time ON violations(timestamp)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_activity_time ON activity_logs(timestamp)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_commands_status ON pending_commands(workstation_id, status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_emp_workstation ON employees(workstation_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_daily_date ON daily_employee_summaries(date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_daily_ws ON daily_employee_summaries(workstation_id, date)")
 
     # Insert default system settings if not already present
     default_settings = {
@@ -335,6 +371,38 @@ def record_activity_and_violation(
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (workstation_id, state, window_title, idle_seconds, cpu_percent, ram_percent, now))
 
+    # 4. Update Daily Employee Summary for Today
+    today_str = datetime.date.today().isoformat()
+    add_active = 3 if state in ("WORK", "OFF_DUTY", "LUNCH_BREAK") else 0
+    add_idle = 3 if state == "IDLE" else 0
+    add_violation = 3 if is_violation else 0
+    is_new_violation = 1 if (is_violation and not (locals().get("row"))) else 0
+
+    c.execute("""
+        INSERT INTO daily_employee_summaries (
+            workstation_id, username, date, active_seconds, idle_seconds,
+            violation_seconds, violations_count, productivity_score, last_updated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(workstation_id, date) DO UPDATE SET
+            username = excluded.username,
+            active_seconds = daily_employee_summaries.active_seconds + excluded.active_seconds,
+            idle_seconds = daily_employee_summaries.idle_seconds + excluded.idle_seconds,
+            violation_seconds = daily_employee_summaries.violation_seconds + excluded.violation_seconds,
+            violations_count = daily_employee_summaries.violations_count + excluded.violations_count,
+            productivity_score = MAX(0.0, ROUND(100.0 - (
+                ((daily_employee_summaries.violation_seconds + excluded.violation_seconds) * 2.0 +
+                 (daily_employee_summaries.idle_seconds + excluded.idle_seconds) * 0.5) /
+                MAX(1, (daily_employee_summaries.active_seconds + excluded.active_seconds +
+                        daily_employee_summaries.idle_seconds + excluded.idle_seconds +
+                        daily_employee_summaries.violation_seconds + excluded.violation_seconds)) * 100.0
+            ), 1)),
+            last_updated = excluded.last_updated
+    """, (
+        workstation_id, username, today_str,
+        add_active, add_idle, add_violation, is_new_violation,
+        100.0, now
+    ))
+
     conn.commit()
     conn.close()
     return {"success": True}
@@ -466,3 +534,262 @@ def fetch_pending_commands(workstation_id: str) -> List[Dict[str, Any]]:
         conn.commit()
     conn.close()
     return rows
+
+
+def format_duration(seconds: int) -> str:
+    """Formats raw seconds into human-readable duration (e.g. '3h 15m' or '4m 20s')."""
+    seconds = max(0, int(seconds or 0))
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        mins = seconds // 60
+        secs = seconds % 60
+        return f"{mins}m {secs:02d}s" if secs > 0 else f"{mins}m"
+    else:
+        hrs = seconds // 3600
+        mins = (seconds % 3600) // 60
+        return f"{hrs}h {mins:02d}m"
+
+
+def get_daily_employee_reports(date_str: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Returns full daily productivity, attendance, active time, and violation metrics
+    for every employee/workstation in the enterprise fleet.
+    """
+    if not date_str:
+        date_str = datetime.date.today().isoformat()
+
+    conn = get_connection()
+    c = conn.cursor()
+
+    # Query all workstations joined with any linked employee record
+    c.execute("""
+        SELECT 
+            w.id, w.hostname, w.username, w.department, w.status, w.total_violations,
+            w.active_window, w.last_seen, w.created_at,
+            e.id as emp_id, e.name as emp_name, e.designation, e.email
+        FROM workstations w
+        LEFT JOIN employees e ON (e.workstation_id = w.id OR e.id = w.id)
+        ORDER BY w.department ASC, w.id ASC
+    """)
+    workstations = [dict(r) for r in c.fetchall()]
+
+    # Query daily summaries for this date
+    c.execute("""
+        SELECT * FROM daily_employee_summaries WHERE date = ?
+    """, (date_str,))
+    summaries = {r["workstation_id"]: dict(r) for r in c.fetchall()}
+
+    # Query all violations for this date
+    c.execute("""
+        SELECT 
+            id, workstation_id, username, rule_type, title, process_name,
+            duration_seconds, started_at, last_detected_at, status, ai_verdict, timestamp
+        FROM violations
+        WHERE strftime('%Y-%m-%d', datetime(timestamp, 'unixepoch')) = ?
+        ORDER BY timestamp DESC
+    """, (date_str,))
+    all_violations = [dict(r) for r in c.fetchall()]
+
+    # Group violations by workstation
+    violations_by_ws: Dict[str, List[Dict[str, Any]]] = {}
+    for v in all_violations:
+        ws_id = v["workstation_id"]
+        if ws_id not in violations_by_ws:
+            violations_by_ws[ws_id] = []
+
+        started_ts = v.get("started_at") or v.get("timestamp")
+        ended_ts = v.get("last_detected_at") or v.get("timestamp")
+
+        v_item = {
+            "id": v["id"],
+            "title": v["title"],
+            "process_name": v["process_name"] or "unknown.exe",
+            "rule_type": v["rule_type"],
+            "duration_seconds": v["duration_seconds"],
+            "duration_formatted": format_duration(v["duration_seconds"]),
+            "started_at_str": datetime.datetime.fromtimestamp(started_ts).strftime("%I:%M:%S %p") if started_ts else "N/A",
+            "ended_at_str": datetime.datetime.fromtimestamp(ended_ts).strftime("%I:%M:%S %p") if ended_ts else "N/A",
+            "status": v["status"],
+            "ai_verdict": v.get("ai_verdict", "GAMING")
+        }
+        violations_by_ws[ws_id].append(v_item)
+
+    reports = []
+    now = time.time()
+
+    for ws in workstations:
+        ws_id = ws["id"]
+        summ = summaries.get(ws_id)
+        ws_viols = violations_by_ws.get(ws_id, [])
+
+        emp_display_name = ws.get("emp_name") or ws["username"] or ws["hostname"]
+        emp_code = ws.get("emp_id") or f"EMP-{abs(hash(ws_id)) % 9000 + 1000}"
+
+        if summ:
+            active_sec = summ.get("active_seconds", 0)
+            idle_sec = summ.get("idle_seconds", 0)
+            viol_sec = summ.get("violation_seconds", 0)
+            viol_count = summ.get("violations_count", len(ws_viols))
+            score = summ.get("productivity_score", 100.0)
+        else:
+            # Dynamically compute from violations and active logs if summary row not yet generated
+            viol_sec = sum(v["duration_seconds"] for v in ws_viols)
+            viol_count = len(ws_viols)
+            # Estimate active time based on check-in or demo values
+            if ws["status"] in ("WORK", "OFF_DUTY", "LUNCH_BREAK"):
+                active_sec = max(1800, int(now - (ws["last_seen"] or now)) + 7200)
+                idle_sec = 600
+            elif ws["status"] == "IDLE":
+                active_sec = 3600
+                idle_sec = 2400
+            else:
+                active_sec = 2400
+                idle_sec = 600
+
+            total_tracked = max(1, active_sec + idle_sec + viol_sec)
+            penalty = (viol_sec * 2.0 + idle_sec * 0.5) / total_tracked * 100.0
+            score = max(0.0, min(100.0, round(100.0 - penalty, 1)))
+
+        reports.append({
+            "workstation_id": ws_id,
+            "employee_id": emp_code,
+            "employee_name": emp_display_name,
+            "department": ws.get("department") or "Technology",
+            "designation": ws.get("designation") or "Associate",
+            "email": ws.get("email") or f"{ws['username'].lower()}@company.com",
+            "status": ws["status"],
+            "date": date_str,
+            "active_seconds": active_sec,
+            "active_formatted": format_duration(active_sec),
+            "idle_seconds": idle_sec,
+            "idle_formatted": format_duration(idle_sec),
+            "violation_seconds": viol_sec,
+            "violation_formatted": format_duration(viol_sec),
+            "violations_count": viol_count,
+            "productivity_score": score,
+            "active_window": ws.get("active_window", "Desktop"),
+            "violations": ws_viols
+        })
+
+    conn.close()
+    return reports
+
+
+def get_employee_audit_trail(workstation_id: str, date_str: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Returns an exhaustive breakdown of every violation, process name, and exact timeline
+    for a specific employee/workstation on a specific date.
+    """
+    if not date_str:
+        date_str = datetime.date.today().isoformat()
+
+    conn = get_connection()
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT w.*, e.name as emp_name, e.designation, e.email, e.id as emp_id
+        FROM workstations w
+        LEFT JOIN employees e ON (e.workstation_id = w.id OR e.id = w.id)
+        WHERE w.id = ?
+    """, (workstation_id,))
+    ws_row = c.fetchone()
+
+    if not ws_row:
+        conn.close()
+        return {"error": "Workstation not found"}
+
+    ws = dict(ws_row)
+
+    # Fetch all violations for this workstation on that date
+    c.execute("""
+        SELECT 
+            id, rule_type, title, process_name, duration_seconds,
+            started_at, last_detected_at, status, ai_verdict, ai_summary,
+            evidence_path, timestamp
+        FROM violations
+        WHERE workstation_id = ? AND strftime('%Y-%m-%d', datetime(timestamp, 'unixepoch')) = ?
+        ORDER BY timestamp DESC
+    """, (workstation_id, date_str))
+
+    violations_raw = [dict(r) for r in c.fetchall()]
+    conn.close()
+
+    violations_detailed = []
+    total_violation_sec = 0
+
+    for v in violations_raw:
+        dur = v["duration_seconds"]
+        total_violation_sec += dur
+        started_ts = v.get("started_at") or v.get("timestamp")
+        ended_ts = v.get("last_detected_at") or v.get("timestamp")
+
+        violations_detailed.append({
+            "id": v["id"],
+            "title": v["title"],
+            "process_name": v["process_name"] or "unknown.exe",
+            "rule_type": v["rule_type"],
+            "duration_seconds": dur,
+            "duration_formatted": format_duration(dur),
+            "started_at": datetime.datetime.fromtimestamp(started_ts).strftime("%I:%M:%S %p") if started_ts else "N/A",
+            "ended_at": datetime.datetime.fromtimestamp(ended_ts).strftime("%I:%M:%S %p") if ended_ts else "N/A",
+            "status": v["status"],
+            "ai_verdict": v.get("ai_verdict", "GAMING"),
+            "ai_summary": v.get("ai_summary", "Detected policy violation"),
+            "evidence_path": v.get("evidence_path", "")
+        })
+
+    return {
+        "workstation_id": workstation_id,
+        "employee_id": ws.get("emp_id") or ws_id_to_code(workstation_id),
+        "employee_name": ws.get("emp_name") or ws["username"] or ws["hostname"],
+        "department": ws.get("department") or "Technology",
+        "designation": ws.get("designation") or "Employee",
+        "date": date_str,
+        "total_violations_count": len(violations_detailed),
+        "total_violation_seconds": total_violation_sec,
+        "total_violation_formatted": format_duration(total_violation_sec),
+        "violations": violations_detailed
+    }
+
+
+def ws_id_to_code(ws_id: str) -> str:
+    return f"EMP-{abs(hash(ws_id)) % 9000 + 1000}"
+
+
+def upsert_employee(
+    emp_id: str,
+    name: str,
+    email: str = "",
+    department: str = "Technology",
+    designation: str = "Software Engineer",
+    workstation_id: str = ""
+) -> Dict[str, Any]:
+    """Inserts or updates an employee in the employees master directory."""
+    conn = get_connection()
+    c = conn.cursor()
+    now = time.time()
+    c.execute("""
+        INSERT INTO employees (id, name, email, department, designation, workstation_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            email = excluded.email,
+            department = excluded.department,
+            designation = excluded.designation,
+            workstation_id = excluded.workstation_id
+    """, (emp_id, name, email, department, designation, workstation_id, now))
+    conn.commit()
+    conn.close()
+    return {"success": True, "employee_id": emp_id}
+
+
+def list_employees() -> List[Dict[str, Any]]:
+    """Returns all registered employees from the database."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM employees ORDER BY department ASC, name ASC")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+

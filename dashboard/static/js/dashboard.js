@@ -942,9 +942,234 @@ async function loadAnalytics() {
         });
       }
     }
+
+    // Also load employee reports for the selected date
+    await loadDailyEmployeeReports();
   } catch (e) {
     console.error("Analytics load error:", e);
   }
+}
+
+// ============================================================================
+// 200+ Employee Daily Reports & Forensics Engine
+// ============================================================================
+let cachedDailyReports = [];
+let currentReportDate = new Date().toISOString().split("T")[0];
+
+async function loadDailyEmployeeReports(targetDate = null) {
+  try {
+    if (targetDate) {
+      currentReportDate = targetDate;
+    }
+    const dateInput = document.getElementById("report-date-input");
+    if (dateInput && !dateInput.value) {
+      dateInput.value = currentReportDate;
+    } else if (dateInput && targetDate) {
+      dateInput.value = targetDate;
+    }
+
+    const res = await fetch(`/api/reports/daily?date=${currentReportDate}`);
+    const data = await res.json();
+    cachedDailyReports = data.reports || [];
+
+    // Calculate Fleet KPIs
+    const totalEmp = cachedDailyReports.length;
+    let totalActiveSec = 0;
+    let totalViols = 0;
+    let scoreSum = 0;
+
+    cachedDailyReports.forEach(r => {
+      totalActiveSec += (r.active_seconds || 0);
+      totalViols += (r.violations_count || 0);
+      scoreSum += (r.productivity_score || 100);
+    });
+
+    const avgScore = totalEmp > 0 ? Math.round(scoreSum / totalEmp) : 100;
+    const totalActiveHrs = Math.floor(totalActiveSec / 3600);
+    const totalActiveMins = Math.floor((totalActiveSec % 3600) / 60);
+
+    const kpiEmp = document.getElementById("rep-kpi-total-emp");
+    const kpiActive = document.getElementById("rep-kpi-total-active");
+    const kpiViols = document.getElementById("rep-kpi-total-viols");
+    const kpiScore = document.getElementById("rep-kpi-avg-score");
+
+    if (kpiEmp) kpiEmp.textContent = totalEmp;
+    if (kpiActive) kpiActive.textContent = `${totalActiveHrs}h ${totalActiveMins}m`;
+    if (kpiViols) kpiViols.textContent = totalViols;
+    if (kpiScore) {
+      kpiScore.textContent = `${avgScore}%`;
+      kpiScore.className = `text-lg font-bold mono-font ${avgScore >= 85 ? 'text-emerald-400' : avgScore >= 65 ? 'text-amber-400' : 'text-rose-400'}`;
+    }
+
+    renderDailyReportsTable(cachedDailyReports);
+  } catch (e) {
+    console.error("Daily report fetch error:", e);
+  }
+}
+
+function renderDailyReportsTable(reports) {
+  const tbody = document.getElementById("daily-reports-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (!reports || reports.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">No employee workstations logged for this date. Run simulator or start agents to record attendance.</td></tr>`;
+    return;
+  }
+
+  reports.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-800/40 transition border-b border-slate-800/40";
+
+    const score = r.productivity_score || 100;
+    const scoreColor = score >= 85 ? "text-emerald-400" : score >= 65 ? "text-amber-400" : "text-rose-400";
+    const scoreBg = score >= 85 ? "bg-emerald-500" : score >= 65 ? "bg-amber-500" : "bg-rose-500";
+
+    const hasViolations = (r.violations_count || 0) > 0;
+    const violBadge = hasViolations 
+      ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">${r.violations_count} Flaggable</span>`
+      : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">0 Clean</span>`;
+
+    const violTimeBadge = hasViolations
+      ? `<span class="text-rose-400 font-bold mono-font">${escapeHtml(r.violation_formatted || '0s')}</span>`
+      : `<span class="text-slate-500 mono-font">0s</span>`;
+
+    tr.innerHTML = `
+      <td class="p-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-[10px] text-indigo-300">
+            ${(r.employee_name || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <span class="font-bold text-white block">${escapeHtml(r.employee_name)}</span>
+            <span class="text-[10px] text-slate-500 mono-font">${escapeHtml(r.employee_id || r.workstation_id)}</span>
+          </div>
+        </div>
+      </td>
+      <td class="p-3">
+        <span class="mono-font text-slate-300 block text-[11px]">${escapeHtml(r.workstation_id)}</span>
+        <span class="text-[10px] text-slate-500">${escapeHtml(r.designation || 'Staff')}</span>
+      </td>
+      <td class="p-3">
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-950/70 border border-indigo-700/40 text-indigo-300">
+          ${escapeHtml(r.department)}
+        </span>
+      </td>
+      <td class="p-3 font-semibold text-emerald-400 mono-font">${escapeHtml(r.active_formatted)}</td>
+      <td class="p-3 text-amber-300 mono-font">${escapeHtml(r.idle_formatted)}</td>
+      <td class="p-3">${violTimeBadge}</td>
+      <td class="p-3">${violBadge}</td>
+      <td class="p-3">
+        <div class="flex items-center space-x-2">
+          <span class="font-bold mono-font ${scoreColor}">${score}%</span>
+          <div class="w-12 bg-slate-800 h-1.5 rounded-full overflow-hidden hidden sm:block">
+            <div class="${scoreBg} h-full rounded-full" style="width: ${score}%"></div>
+          </div>
+        </div>
+      </td>
+      <td class="p-3 text-right">
+        <button onclick="openEmployeeAuditModal('${escapeHtml(r.workstation_id)}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white font-semibold text-[11px] transition cursor-pointer flex items-center gap-1 ml-auto">
+          <span>🔍</span>
+          <span>Audit Log</span>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterEmployeeReports() {
+  const dept = document.getElementById("report-dept-filter")?.value || "all";
+  const query = (document.getElementById("report-search-input")?.value || "").toLowerCase().trim();
+
+  const filtered = cachedDailyReports.filter(r => {
+    const matchDept = (dept === "all" || (r.department && r.department.toLowerCase() === dept.toLowerCase()));
+    const matchQuery = !query || 
+      (r.employee_name && r.employee_name.toLowerCase().includes(query)) ||
+      (r.employee_id && r.employee_id.toLowerCase().includes(query)) ||
+      (r.workstation_id && r.workstation_id.toLowerCase().includes(query));
+    return matchDept && matchQuery;
+  });
+
+  renderDailyReportsTable(filtered);
+}
+
+function onReportDateChanged() {
+  const input = document.getElementById("report-date-input");
+  if (input && input.value) {
+    loadDailyEmployeeReports(input.value);
+  }
+}
+
+async function openEmployeeAuditModal(workstationId) {
+  try {
+    const res = await fetch(`/api/reports/employee/${workstationId}?date=${currentReportDate}`);
+    const data = await res.json();
+
+    document.getElementById("ea-modal-title").textContent = `Forensic Timeline: ${data.employee_name || workstationId}`;
+    document.getElementById("ea-modal-subtitle").textContent = `Workstation: ${workstationId} • Department: ${data.department || 'Technology'} • Designation: ${data.designation || 'Staff'}`;
+    document.getElementById("ea-modal-total-count").textContent = data.total_violations_count || 0;
+    document.getElementById("ea-modal-total-duration").textContent = data.total_violation_formatted || "0s";
+    document.getElementById("ea-modal-date").textContent = data.date || currentReportDate;
+
+    const listEl = document.getElementById("ea-modal-violations-list");
+    listEl.innerHTML = "";
+
+    const viols = data.violations || [];
+    if (viols.length === 0) {
+      listEl.innerHTML = `
+        <div class="p-8 text-center bg-slate-950/50 rounded-xl border border-slate-800/80 space-y-2">
+          <span class="text-2xl block">✅</span>
+          <span class="text-emerald-400 font-bold text-xs block">100% Policy Compliant</span>
+          <p class="text-slate-400 text-[11px]">No unauthorized gaming, trading, or gambling infractions logged for this employee on ${data.date}.</p>
+        </div>
+      `;
+    } else {
+      viols.forEach((v, idx) => {
+        const item = document.createElement("div");
+        item.className = "bg-slate-950/80 p-3.5 rounded-xl border border-rose-500/30 space-y-2";
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="w-5 h-5 rounded-full bg-rose-500/20 text-rose-400 font-bold flex items-center justify-center text-[10px]">#${idx + 1}</span>
+              <span class="font-bold text-white text-xs">${escapeHtml(v.title)}</span>
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-950 text-rose-300 border border-rose-700/50 mono-font">${escapeHtml(v.process_name)}</span>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 mono-font">
+              ⏱️ Duration: ${escapeHtml(v.duration_formatted)}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
+            <div><span class="text-slate-500 block">Started:</span> <span class="text-slate-200 mono-font">${escapeHtml(v.started_at)}</span></div>
+            <div><span class="text-slate-500 block">Ended:</span> <span class="text-slate-200 mono-font">${escapeHtml(v.ended_at)}</span></div>
+            <div><span class="text-slate-500 block">Rule:</span> <span class="text-indigo-300">${escapeHtml(v.rule_type)}</span></div>
+            <div><span class="text-slate-500 block">AI Classification:</span> <span class="text-amber-300 font-bold">${escapeHtml(v.ai_verdict)}</span></div>
+          </div>
+        `;
+        listEl.appendChild(item);
+      });
+    }
+
+    const modal = document.getElementById("employee-audit-modal");
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  } catch (e) {
+    console.error("Audit modal error:", e);
+  }
+}
+
+function closeEmployeeAuditModal() {
+  const modal = document.getElementById("employee-audit-modal");
+  if (modal) {
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+  }
+}
+
+function exportReportsCSV() {
+  const dateInput = document.getElementById("report-date-input");
+  const targetDate = (dateInput && dateInput.value) || currentReportDate || new Date().toISOString().split("T")[0];
+  window.location.href = `/api/reports/export/csv?date=${targetDate}`;
 }
 
 // ============================================================================
