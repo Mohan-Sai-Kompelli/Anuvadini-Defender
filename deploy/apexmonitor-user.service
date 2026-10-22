@@ -1,0 +1,15 @@
+[Unit]
+Description=ApexMonitor Enterprise Hub Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/isldev/monitor_system
+ExecStart=/home/isldev/monitor_system/.venv/bin/python3 -m uvicorn server.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/isldev/monitor_system/server.log
+StandardError=append:/home/isldev/monitor_system/server.log
+
+[Install]
+WantedBy=default.target

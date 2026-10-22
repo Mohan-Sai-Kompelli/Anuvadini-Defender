@@ -1,0 +1,16 @@
+[Unit]
+Description=ApexMonitor Enterprise Hub
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/monitor_system/server
+ExecStart=/opt/monitor_system/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

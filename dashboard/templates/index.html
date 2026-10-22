@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title | default("Anuvadini Apex - Enterprise Monitoring Platform") }}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN for live analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Design System Stylesheet -->
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="h-full flex flex-col text-slate-100 bg-[#090d16]">
+
+    <!-- Top Navigation Bar -->
+    <header class="glass-nav sticky top-0 z-40 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-rose-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+                        Anuvadini Apex
+                        <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v2.0 Enterprise</span>
+                    </h1>
+                </div>
+                <div class="flex items-center space-x-2 text-xs text-slate-400">
+                    <span id="ws-status-indicator" class="status-dot offline"></span>
+                    <span id="ws-status-text" class="mono-font text-[11px]">CONNECTING...</span>
+                    <span class="text-slate-600">•</span>
+                    <span id="stat-bandwidth" class="mono-font text-[11px] text-emerald-400">0 KB/s</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Autonomous Shift Banner (Top Header Widget) -->
+        <div class="hidden md:flex items-center space-x-3 bg-slate-900/90 border border-slate-800 px-4 py-1.5 rounded-xl text-xs">
+            <div class="flex items-center space-x-2">
+                <span id="shift-badge" class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    SHIFT ACTIVE
+                </span>
+                <span id="shift-countdown" class="mono-font text-slate-200 font-semibold">09:30 - 17:30</span>
+            </div>
+            <div class="w-24 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div id="shift-progress-bar" class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: 45%"></div>
+            </div>
+            <select id="shift-override-select" class="bg-slate-950 border border-slate-700 text-[11px] rounded px-2 py-0.5 text-slate-300 focus:outline-none">
+                <option value="AUTO">Schedule: Auto</option>
+                <option value="FORCE_WORK">Force Work</option>
+                <option value="FORCE_STANDBY">Force Standby</option>
+            </select>
+        </div>
+
+        <!-- Actions & Connect Guide -->
+        <div class="flex items-center space-x-2 text-xs flex-wrap">
+            <!-- Connect Guide Button -->
+            <button onclick="openConnectGuideModal()" class="flex items-center space-x-1.5 bg-indigo-950/70 hover:bg-indigo-900/80 border border-indigo-600/50 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-200 transition cursor-pointer">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                <span>📖 Connect Other Laptops</span>
+            </button>
+
+            <!-- Sound Alert Toggle -->
+            <button id="btn-sound-toggle" class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                <span>Sound ON</span>
+            </button>
+
+            <!-- Download Agent Button -->
+            <a href="/download/ApexMonitor.exe" download="ApexMonitor.exe" class="flex items-center space-x-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg shadow-md shadow-indigo-500/20 transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span class="hidden sm:inline">Download Agent</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- 7-Tab Navigation Bar -->
+    <div class="bg-slate-900/60 border-b border-slate-800/80 px-6 py-2">
+        <nav class="flex items-center space-x-1 overflow-x-auto text-xs font-semibold scrollbar-none" id="main-tabs">
+            <button data-tab="tab-fleet" class="tab-btn px-4 py-2 rounded-lg bg-indigo-600 text-white shadow-sm transition flex items-center gap-2 whitespace-nowrap">
+                <span>🏢</span> Company Fleet
+            </button>
+            <button data-tab="tab-focus" class="tab-btn px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                <span>🎯</span> Focused Workstation
+            </button>
+            <button data-tab="tab-incidents" class="tab-btn px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                <span>🚨</span> Incidents Feed
+                <span id="badge-incident-count" class="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/30 text-rose-300 font-bold">0</span>
+            </button>
+            <button data-tab="tab-analytics" class="tab-btn px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                <span>📈</span> Analytics
+            </button>
+            <button data-tab="tab-deployment" class="tab-btn px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                <span>🛡️</span> IT Deployment & Anti-Tamper
+            </button>
+            <button data-tab="tab-nim" class="tab-btn px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                <span>🤖</span> NVIDIA NIM AI
+            </button>
+            <button data-tab="tab-rules" class="tab-btn px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                <span>📜</span> Policy Rules & Shift
+            </button>
+        </nav>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-6 max-w-[1780px] mx-auto w-full space-y-6">
+
+        <!-- =============================================================== -->
+        <!-- TAB 1: COMPANY FLEET -->
+        <!-- =============================================================== -->
+        <section id="tab-fleet" class="tab-content space-y-6">
+            <!-- Top Telemetry Row -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-panel p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Monitored Fleet</p>
+                        <p class="text-2xl font-black text-white mt-1" id="stat-total">0</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4 flex items-center justify-between transition-all" id="stat-card-alerts">
+                    <div>
+                        <p class="text-xs font-medium text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                            Active Gaming / Alerts
+                        </p>
+                        <p class="text-2xl font-black text-rose-400 mt-1" id="stat-alerts">0</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-emerald-400 uppercase tracking-wider">Productive Work</p>
+                        <p class="text-2xl font-black text-emerald-400 mt-1" id="stat-normal">0</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-amber-400 uppercase tracking-wider">Fleet Health Score</p>
+                        <p class="text-2xl font-black text-amber-400 mt-1" id="stat-health-score">94%</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Department Filter Pills & Search Controls -->
+            <div class="glass-panel p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <!-- Department Pills -->
+                    <div class="flex items-center space-x-1.5 overflow-x-auto py-1 scrollbar-none" id="dept-filters">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider pr-1">Dept:</span>
+                        <button data-dept="all" class="dept-btn px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">All Departments</button>
+                        <button data-dept="Technology" class="dept-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">Technology</button>
+                        <button data-dept="Finance" class="dept-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">Finance</button>
+                        <button data-dept="Language Experts" class="dept-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">Language Experts</button>
+                        <button data-dept="Drafting" class="dept-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">Drafting</button>
+                        <button data-dept="Social Media" class="dept-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">Social Media</button>
+                        <button data-dept="Marketing" class="dept-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">Marketing</button>
+                    </div>
+
+                    <!-- Search Input -->
+                    <div class="relative w-full sm:w-64">
+                        <input id="search-input" type="text" placeholder="Search host, user, app..." class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition pl-8" />
+                        <svg class="w-4 h-4 text-slate-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                </div>
+
+                <!-- Status Filter & Grid Columns -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+                    <div class="flex items-center space-x-1 text-xs">
+                        <button data-filter="all" class="filter-tab px-3 py-1.5 rounded-lg bg-slate-800 text-white font-medium transition">All States</button>
+                        <button data-filter="alerts" class="filter-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">🚨 Violations Only</button>
+                        <button data-filter="active" class="filter-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">💼 Productive</button>
+                        <button data-filter="idle" class="filter-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">💤 Idle</button>
+                        <button data-filter="offline" class="filter-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">🔌 Offline</button>
+                    </div>
+
+                    <div class="hidden lg:flex items-center space-x-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs">
+                        <span class="text-[10px] text-slate-500 px-1 font-bold">GRID</span>
+                        <button data-cols="2" class="px-2 py-1 rounded hover:bg-slate-800 text-slate-300">2</button>
+                        <button data-cols="3" class="px-2 py-1 rounded hover:bg-slate-800 text-slate-300">3</button>
+                        <button data-cols="4" class="px-2 py-1 rounded bg-slate-700 text-white font-bold">4</button>
+                        <button data-cols="6" class="px-2 py-1 rounded hover:bg-slate-800 text-slate-300">6</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Workstation Cards Grid -->
+            <div id="client-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Keyed DOM elements injected dynamically without thrashing -->
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 2: FOCUSED WORKSTATION -->
+        <!-- =============================================================== -->
+        <section id="tab-focus" class="tab-content hidden space-y-6">
+            <div class="glass-panel p-6 space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold">
+                            🔍
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-white">Focused Workstation Deep Inspector</h2>
+                            <p class="text-xs text-slate-400">Live hardware telemetry, connected controllers, and real-time IT enforcement</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <select id="focus-select-ws" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <button onclick="refreshFocusStation()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer">
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left: Large Screen View -->
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 relative flex items-center justify-center shadow-2xl">
+                            <img id="focus-img" src="" alt="Workstation Live Stream" class="w-full h-full object-contain" />
+                            <div id="focus-img-placeholder" class="text-slate-600 text-sm flex items-center gap-2">
+                                <span>No screen transmission active</span>
+                            </div>
+                        </div>
+
+                        <!-- Hardware Telemetry Meters -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold">CPU Usage</span>
+                                <span id="focus-cpu" class="text-emerald-400 font-bold text-base mono-font">12.4%</span>
+                            </div>
+                            <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold">Memory (RAM)</span>
+                                <span id="focus-ram" class="text-indigo-400 font-bold text-base mono-font">48.2%</span>
+                            </div>
+                            <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold">Hardware Idle</span>
+                                <span id="focus-idle" class="text-amber-400 font-bold text-base mono-font">0s</span>
+                            </div>
+                            <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold">Gamepad / Joystick</span>
+                                <span id="focus-gamepad" class="text-rose-400 font-bold text-sm">None</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Info & IT Enforcement Actions -->
+                    <div class="space-y-4 text-xs">
+                        <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-3">
+                            <h3 class="font-bold text-slate-200 uppercase tracking-wider text-[11px]">Workstation Details</h3>
+                            <div class="space-y-1.5 text-slate-300">
+                                <div class="flex justify-between"><span class="text-slate-500">Host ID:</span> <span id="focus-host" class="mono-font font-bold text-white">WS-01</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">Employee:</span> <span id="focus-user" class="font-medium">User</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">Department:</span> <span id="focus-dept" class="text-indigo-400 font-semibold">Engineering</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">IP Address:</span> <span id="focus-ip" class="mono-font text-slate-400">192.168.1.1</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">State:</span> <span id="focus-state" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">WORK</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">Active App:</span> <span id="focus-app" class="font-medium truncate max-w-[180px]">VS Code</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Remote Action Console -->
+                        <div class="bg-rose-950/20 border border-rose-500/30 p-4 rounded-xl space-y-3">
+                            <h3 class="font-bold text-rose-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                                <span>⚡</span> Direct IT Enforcement
+                            </h3>
+                            <div class="space-y-2">
+                                <label class="text-[10px] text-slate-400 block">Terminate Process (PID or executable name):</label>
+                                <div class="flex space-x-2">
+                                    <input id="action-kill-input" type="text" placeholder="e.g. cs2.exe or 4920" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-rose-500" />
+                                    <button onclick="dispatchDirectKill()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3 py-1.5 rounded-lg transition cursor-pointer">
+                                        Kill
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2 pt-2 border-t border-rose-500/20">
+                                <label class="text-[10px] text-slate-400 block">Send System Warning Modal to Screen:</label>
+                                <div class="flex space-x-2">
+                                    <input id="action-warn-input" type="text" placeholder="Compliance Warning Message..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500" value="Non-work activities are prohibited during shift hours." />
+                                    <button onclick="dispatchDirectWarn()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.5 rounded-lg transition cursor-pointer">
+                                        Warn
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 3: INCIDENTS FEED -->
+        <!-- =============================================================== -->
+        <section id="tab-incidents" class="tab-content hidden space-y-6">
+            <div class="glass-panel p-6 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>🚨</span> Compliance Incidents & Tamper-Proof Audit Proofs
+                        </h2>
+                        <p class="text-xs text-slate-400">Forensic records with timestamp, workstation ID, process name, and cryptographic watermarks</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <a href="/api/violations/export/csv" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 flex items-center gap-1.5 transition">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Export CSV Report
+                        </a>
+                        <button onclick="loadIncidents()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer">
+                            Refresh Feed
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Incidents Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-800">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">Ref ID</th>
+                                <th class="p-3">First Detected</th>
+                                <th class="p-3">Last Active</th>
+                                <th class="p-3">Workstation</th>
+                                <th class="p-3">Employee</th>
+                                <th class="p-3">Website / App Logged</th>
+                                <th class="p-3">Total Uptime</th>
+                                <th class="p-3">Category</th>
+                                <th class="p-3">Evidence Proofs</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+
+
+                        <tbody id="incidents-table-body" class="divide-y divide-slate-800/60 bg-slate-900/40 text-slate-300">
+                            <!-- Injected by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 4: ANALYTICS -->
+        <!-- =============================================================== -->
+        <section id="tab-analytics" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- State Breakdown Donut -->
+                <div class="glass-panel p-6 space-y-4">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <span>📊</span> Fleet State Distribution
+                    </h3>
+                    <div class="h-64 flex items-center justify-center">
+                        <canvas id="chart-state-donut"></canvas>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs pt-2 border-t border-slate-800">
+                        <div><span class="text-emerald-400 font-bold block" id="analytic-work-pct">78%</span><span class="text-slate-500 text-[10px]">Work</span></div>
+                        <div><span class="text-rose-400 font-bold block" id="analytic-game-pct">14%</span><span class="text-slate-500 text-[10px]">Gaming</span></div>
+                        <div><span class="text-amber-400 font-bold block" id="analytic-idle-pct">8%</span><span class="text-slate-500 text-[10px]">Idle</span></div>
+                    </div>
+                </div>
+
+                <!-- Hourly Stacked Work vs Gaming Bar -->
+                <div class="glass-panel p-6 space-y-4 lg:col-span-2">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span>⏱️</span> Hourly Activity Distribution (08:00 – 19:00)
+                        </h3>
+                        <span class="text-[11px] text-slate-400">Aggregated across all endpoints</span>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="chart-hourly-bar"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Offending Games Leaderboard -->
+            <div class="glass-panel p-6 space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span>🏆</span> Top 6 Detected Gaming & Gambling Titles
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="top-games-container">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 5: IT DEPLOYMENT & ANTI-TAMPER -->
+        <!-- =============================================================== -->
+        <section id="tab-deployment" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Anti-Tamper & Dead-Man Monitor (4 cols) -->
+                <div class="lg:col-span-4 glass-panel p-6 space-y-4 flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 font-bold">
+                                🛡️
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white">Dead-Man Heartbeat Monitor</h3>
+                                <p class="text-xs text-slate-400">Detects frozen, killed, or network-blocked agents</p>
+                            </div>
+                        </div>
+
+                        <div id="tamper-status-box" class="p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-xs space-y-2">
+                            <div class="flex items-center space-x-2 text-emerald-400 font-bold">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                <span>All Endpoint Heartbeats Nominal</span>
+                            </div>
+                            <p class="text-slate-300">No frozen or tampered workstations detected. Agents are checking in within the 25-second watchdog ceiling.</p>
+                        </div>
+                    </div>
+
+                    <!-- Bulk Disciplinary Actions -->
+                    <div class="space-y-3 pt-4 border-t border-slate-800">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Fleet Bulk Enforcement Actions</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button onclick="bulkWarnSlacking()" class="p-3 rounded-xl bg-amber-950/50 hover:bg-amber-900/60 border border-amber-700/50 text-amber-200 text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 cursor-pointer">
+                                <span class="text-base">⚠️</span>
+                                <span>Warn All Slacking</span>
+                            </button>
+                            <button onclick="bulkKillGaming()" class="p-3 rounded-xl bg-rose-950/50 hover:bg-rose-900/60 border border-rose-700/50 text-rose-200 text-xs font-bold transition flex flex-col items-center justify-center gap-1.5 cursor-pointer">
+                                <span class="text-base">🛑</span>
+                                <span>Kill All Gaming Fleet-Wide</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Interactive Laptop Setup & Config Generator (8 cols) -->
+                <div class="lg:col-span-8 glass-panel p-6 space-y-6">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold">
+                                💻
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white">How to Set Up on Other Laptops</h3>
+                                <p class="text-xs text-slate-400">Configure host IP, port, and department to connect employee laptops to this hub</p>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            Server LAN IP: <strong class="mono-font">{{ server_lan_ip }}</strong>
+                        </span>
+                    </div>
+
+                    <!-- Interactive Config Parameters Form -->
+                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-4">
+                        <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>⚙️</span> Step 1: Set Connection Parameters for Target Laptop
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div>
+                                <label class="text-slate-400 block mb-1 font-medium">Server Host / IP:</label>
+                                <input id="deploy-cfg-host" type="text" value="{{ server_lan_ip }}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 mono-font focus:outline-none focus:border-indigo-500" oninput="updateDeploySnippets()" />
+                                <span class="text-[10px] text-slate-500 mt-1 block">Your central machine's IP</span>
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-1 font-medium">Server Port:</label>
+                                <input id="deploy-cfg-port" type="number" value="{{ server_port }}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 mono-font focus:outline-none focus:border-indigo-500" oninput="updateDeploySnippets()" />
+                                <span class="text-[10px] text-slate-500 mt-1 block">Default hub port: 8000</span>
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-1 font-medium">Employee Department:</label>
+                                <select id="deploy-cfg-dept" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500" onchange="updateDeploySnippets()">
+                                    <option value="Technology" selected>Technology</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="Language Experts">Language Experts</option>
+                                    <option value="Drafting">Drafting</option>
+                                    <option value="Social Media">Social Media</option>
+                                    <option value="Marketing">Marketing</option>
+                                </select>
+                                <span class="text-[10px] text-slate-500 mt-1 block">Assigned company dept</span>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
+                            <a id="btn-download-custom-config" href="/download/app_config.json?host={{ server_lan_ip }}&port={{ server_port }}&department=Engineering" download="app_config.json" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg text-xs transition cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                <span>📥 Download Pre-Configured app_config.json</span>
+                            </a>
+                            <a href="/download/ApexMonitor.exe" download="ApexMonitor.exe" class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold px-4 py-2 rounded-lg text-xs transition cursor-pointer">
+                                <span>📦 Download ApexMonitor.exe (12 MB)</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Choose Setup Method -->
+                    <div class="space-y-4">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>🚀</span> Step 2: Choose How to Deploy on the Other Laptop
+                        </h4>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                            <!-- Method 1: Direct in ApexMonitor.exe GUI -->
+                            <div class="bg-gradient-to-r from-indigo-950/60 to-slate-950/60 p-4 rounded-xl border border-indigo-700/50 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-white flex items-center gap-1.5">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                                        Direct in ApexMonitor.exe (Fastest & 0 Extra Files)
+                                    </span>
+                                    <span class="text-[10px] text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded font-bold">Recommended</span>
+                                </div>
+                                <ol class="list-decimal list-inside text-slate-300 space-y-1 text-[11px]">
+                                    <li>Double-click <code class="mono-font text-indigo-300">ApexMonitor.exe</code> on the other laptop.</li>
+                                    <li>Click <strong class="text-indigo-300">⚙️ Server Configuration & Network Settings</strong> at the bottom.</li>
+                                    <li>Set Server IP to <code class="mono-font bg-slate-900 px-1.5 py-0.5 rounded text-emerald-400 font-bold">{{ server_lan_ip }}</code> and Port to <code class="mono-font bg-slate-900 px-1.5 py-0.5 rounded text-emerald-400 font-bold">{{ server_port }}</code>.</li>
+                                    <li>Click <strong class="text-indigo-400">Save Settings</strong>.</li>
+                                    <li>Click <strong class="text-slate-200 bg-slate-800 px-1.5 py-0.5 rounded font-semibold">👤 Continue without Password (Employee Mode)</strong>.</li>
+                                </ol>
+                            </div>
+
+                            <!-- Method 2: 1-Click Folder Setup -->
+                            <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-white flex items-center gap-1.5">
+                                        <span class="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                                        Zero-Config Folder Setup (app_config.json)
+                                    </span>
+                                    <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-semibold">Auto-Connect</span>
+                                </div>
+                                <ol class="list-decimal list-inside text-slate-300 space-y-1 text-[11px]">
+                                    <li>Download <code class="mono-font text-indigo-300">ApexMonitor.exe</code> and <code class="mono-font text-indigo-300">app_config.json</code> above.</li>
+                                    <li>Place both files in the <strong>same folder</strong> on the other laptop.</li>
+                                    <li>Launch <code class="mono-font text-indigo-300">ApexMonitor.exe</code> and click <strong>Employee Mode</strong>. It connects automatically!</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <!-- Method C: Silent PowerShell 1-Liner -->
+                        <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-2.5 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-white flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-600/30 text-emerald-400 flex items-center justify-center text-[11px] font-bold">C</span>
+                                    Silent PowerShell Remote Deployment Command (Automated)
+                                </span>
+                                <button onclick="copyDeployScript()" id="btn-copy-deploy" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition cursor-pointer">
+                                    📋 Copy Command
+                                </button>
+                            </div>
+                            <p class="text-slate-400 text-[11px]">Copy and paste this single command into PowerShell on the other laptop to download the agent, configure the department, and run silently in background:</p>
+                            <pre id="deploy-powershell-cmd" class="bg-slate-900 p-3 rounded-lg mono-font text-[11px] text-emerald-300 overflow-x-auto select-all border border-slate-800">powershell -Command "mkdir 'C:\ProgramData\AnuvadiniDetector' -Force; Invoke-WebRequest -Uri 'http://{{ server_lan_ip }}:{{ server_port }}/download/ApexMonitor.exe' -OutFile 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe'; Invoke-WebRequest -Uri 'http://{{ server_lan_ip }}:{{ server_port }}/download/app_config.json?host={{ server_lan_ip }}&port={{ server_port }}&department=Engineering' -OutFile 'C:\ProgramData\AnuvadiniDetector\app_config.json'; schtasks /create /tn 'AnuvadiniAgent' /tr 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe' /sc onlogon /rl highest /f; Start-Process 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe'"</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 6: NVIDIA NIM AI VISION -->
+        <!-- =============================================================== -->
+        <section id="tab-nim" class="tab-content hidden space-y-6">
+            <div class="glass-panel p-6 space-y-6">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold">
+                        🤖
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white">NVIDIA NIM Vision Audit Engine</h2>
+                        <p class="text-xs text-slate-400">Multi-modal Llama-3.2 Vision classification of screen thumbnails</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                    <!-- Config Box -->
+                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-4">
+                        <h3 class="font-bold text-slate-200 uppercase tracking-wider text-[11px]">API Key & Model Configuration</h3>
+                        
+                        <div class="space-y-1.5">
+                            <label class="text-slate-400 block">NVIDIA NIM API Key:</label>
+                            <input id="nim-key-input" type="password" placeholder="nvapi-..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 mono-font" />
+                            <span class="text-[10px] text-slate-500 block" id="nim-key-status">Key: Not Set</span>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="text-slate-400 block">Active Vision Model Preset:</label>
+                            <select id="nim-model-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <option value="meta/llama-3.2-11b-vision-instruct">meta/llama-3.2-11b-vision-instruct (Recommended)</option>
+                                <option value="meta/llama-3.2-90b-vision-instruct">meta/llama-3.2-90b-vision-instruct (Ultra Precision)</option>
+                                <option value="nvidia/neva-22b">nvidia/neva-22b</option>
+                                <option value="microsoft/phi-3.5-vision-instruct">microsoft/phi-3.5-vision-instruct</option>
+                            </select>
+                        </div>
+
+                        <div class="flex space-x-2 pt-2">
+                            <button onclick="saveNimConfig()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-lg transition cursor-pointer">
+                                Save Settings
+                            </button>
+                            <button onclick="testNimConnection()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2 rounded-lg transition cursor-pointer">
+                                Test Connection
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live AI Classification Preview Box -->
+                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <h3 class="font-bold text-slate-200 uppercase tracking-wider text-[11px]">AI Vision Classification Output</h3>
+                        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 min-h-[160px] flex flex-col justify-center space-y-2" id="nim-test-output">
+                            <span class="text-slate-500 italic">Configure key and test connection to verify Llama-3.2 Vision classification stream.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 7: POLICY RULES & SHIFT -->
+        <!-- =============================================================== -->
+        <section id="tab-rules" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Shift Configuration Form -->
+                <div class="glass-panel p-6 space-y-4">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>🕒</span> Shift Hours Automation
+                    </h3>
+                    <p class="text-xs text-slate-400">Autonomous 09:30 AM to 05:30 PM office shift schedule.</p>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-slate-400 block mb-1">Shift Start:</label>
+                                <input id="cfg-shift-start" type="time" value="09:30" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-1">Shift End:</label>
+                                <input id="cfg-shift-end" type="time" value="17:30" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+                            <div>
+                                <label class="text-slate-400 block mb-1">Lunch Grace Start:</label>
+                                <input id="cfg-lunch-start" type="time" value="13:00" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-1">Lunch Grace End:</label>
+                                <input id="cfg-lunch-end" type="time" value="14:00" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />
+                            </div>
+                        </div>
+
+                        <button onclick="saveShiftConfig()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg transition mt-2 cursor-pointer">
+                            Update Shift Engine
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Custom Policy Rules Builder -->
+                <div class="glass-panel p-6 space-y-4 lg:col-span-2">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>📜</span> Enterprise Custom Policy Rules
+                        </h3>
+                        <span class="text-xs text-slate-400">Stage 1 Pipeline Evaluation</span>
+                    </div>
+
+                    <!-- Add Rule Row -->
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                        <input id="new-rule-name" type="text" placeholder="Rule Name (e.g. Block Spotify)" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200" />
+                        <select id="new-rule-type" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200">
+                            <option value="process">Process Executable</option>
+                            <option value="window_keyword">Window Title Keyword</option>
+                        </select>
+                        <input id="new-rule-pattern" type="text" placeholder="Pattern (e.g. spotify.exe)" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200" />
+                        <button onclick="addCustomRule()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg p-2 transition cursor-pointer">
+                            + Add Rule
+                        </button>
+                    </div>
+
+                    <!-- Rules List Table -->
+                    <div class="overflow-x-auto rounded-xl border border-slate-800">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                                <tr>
+                                    <th class="p-2.5">Rule Name</th>
+                                    <th class="p-2.5">Type</th>
+                                    <th class="p-2.5">Pattern</th>
+                                    <th class="p-2.5">Enforcement</th>
+                                    <th class="p-2.5">Status</th>
+                                    <th class="p-2.5 text-right">Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rules-table-body" class="divide-y divide-slate-800/60 bg-slate-900/40 text-slate-300">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Evidence Lightbox Modal (For Red Tamper-Evident Proofs) -->
+    <div id="lightbox-modal" onclick="if(event.target===this) closeLightbox()" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-5xl bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-white mono-font" id="lightbox-title">Tamper-Evident Forensic Proof</h3>
+                    <p class="text-xs text-slate-400" id="lightbox-subtitle">Timestamp & cryptographic audit seal verified</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <a id="lightbox-download-btn" href="#" download="evidence_proof.jpg" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download Full Image
+                    </a>
+                    <button onclick="closeLightbox()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-950/70 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex items-center space-x-2">
+                    <span class="text-slate-400 font-semibold">Evidence Capture:</span>
+                    <button id="btn-proof-first" onclick="switchLightboxTab('first')" class="px-3 py-1 rounded-lg font-bold text-xs bg-indigo-600 text-white shadow transition cursor-pointer">
+                        1️⃣ First Detection
+                    </button>
+                    <button id="btn-proof-last" onclick="switchLightboxTab('last')" class="px-3 py-1 rounded-lg font-bold text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition cursor-pointer">
+                        🏁 Last Detection
+                    </button>
+                </div>
+                <div class="flex items-center space-x-4 mono-font text-[11px]">
+                    <span class="text-slate-400">Total Uptime: <span id="lb-uptime" class="text-amber-400 font-bold">0s</span></span>
+                    <span class="text-slate-400">First Seen: <span id="lb-first-time" class="text-slate-200">N/A</span></span>
+                    <span class="text-slate-400">Last Active: <span id="lb-last-time" class="text-slate-200">N/A</span></span>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto flex items-center justify-center bg-black min-h-[50vh]">
+                <img id="lightbox-img" src="" alt="Forensic Screenshot Proof" class="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- Inspector Modal (Quick Inspect from Fleet Grid) -->
+    <div id="inspection-modal" onclick="if(event.target===this){ closeInspector(); }" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+
+        <div class="glass-panel w-full max-w-4xl bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    <div>
+                        <h3 class="text-base font-bold text-white mono-font" id="modal-client-id">DESKTOP-CLIENT</h3>
+                        <p class="text-xs text-slate-400">Endpoint IP: <span id="modal-ip" class="mono-font text-slate-300">192.168.1.1</span></p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="modal-hd-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 animate-pulse flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> HD 1080P ACTIVE
+                    </span>
+                    <span id="modal-status" class="px-2.5 py-1 rounded-full text-xs font-bold badge-normal">Normal</span>
+                    <button id="btn-close-modal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4">
+                <div class="aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center relative">
+                    <img id="modal-img" src="" alt="Live Inspection" class="w-full h-full object-contain" />
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 md:col-span-2">
+                        <p class="text-slate-500 uppercase font-semibold text-[10px] flex items-center justify-between">
+                            <span>Active Page Details & Description</span>
+                            <span id="modal-category-tag" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">Work</span>
+                        </p>
+                        <p class="text-slate-100 font-medium text-xs mt-1 break-words select-text leading-relaxed" id="modal-window">Unknown</p>
+                    </div>
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80">
+                        <p class="text-slate-500 uppercase font-semibold text-[10px]">Hardware Inactivity & Last Seen</p>
+                        <p class="text-slate-200 font-medium text-xs mt-1 mono-font" id="modal-idle">0 seconds</p>
+                        <p class="text-slate-400 font-normal text-[11px] mt-0.5 mono-font" id="modal-seen">Just now</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                    <button onclick="killFromModal()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition cursor-pointer">
+                        Kill Active Process
+                    </button>
+                    <button onclick="warnFromModal()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition cursor-pointer">
+                        Send Warning Modal
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Dedicated Connect Guide & Laptop Setup Modal -->
+    <div id="connect-guide-modal" onclick="if(event.target === this) closeConnectGuideModal()" class="modal-overlay fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-4xl bg-slate-900 border border-slate-700 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-lg">
+                        📖
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">How to Set Up & Connect Other Laptops</h3>
+                        <p class="text-xs text-slate-400">Step-by-step setup guide for employee workstations</p>
+                    </div>
+                </div>
+                <button onclick="closeConnectGuideModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-6 text-xs">
+                <!-- Interactive Parameter Generator -->
+                <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-indigo-300 uppercase tracking-wider text-[11px]">1. Connection Settings for Target Laptop</span>
+                        <span class="text-[11px] text-emerald-400 font-semibold mono-font">Server Detected: {{ server_lan_ip }}:{{ server_port }}</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="text-slate-400 block mb-1">Server Host IP / Domain:</label>
+                            <input id="modal-cfg-host" type="text" value="{{ server_lan_ip }}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 mono-font focus:outline-none focus:border-indigo-500" oninput="syncModalDeploySnippets()" />
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block mb-1">Server Port:</label>
+                            <input id="modal-cfg-port" type="number" value="{{ server_port }}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 mono-font focus:outline-none focus:border-indigo-500" oninput="syncModalDeploySnippets()" />
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block mb-1">Assign Department:</label>
+                            <select id="modal-cfg-dept" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500" onchange="syncModalDeploySnippets()">
+                                <option value="Technology" selected>Technology</option>
+                                <option value="Finance">Finance</option>
+                                <option value="Language Experts">Language Experts</option>
+                                <option value="Drafting">Drafting</option>
+                                <option value="Social Media">Social Media</option>
+                                <option value="Marketing">Marketing</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+                        <a id="modal-btn-download-config" href="/download/app_config.json?host={{ server_lan_ip }}&port={{ server_port }}&department=Engineering" download="app_config.json" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                            <span>📥 Download app_config.json</span>
+                        </a>
+                        <a href="/download/ApexMonitor.exe" download="ApexMonitor.exe" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-1.5 rounded-lg transition">
+                            <span>📦 Download ApexMonitor.exe</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Setup Instructions -->
+                <div class="space-y-4">
+                    <span class="font-bold text-slate-300 uppercase tracking-wider text-[11px] block">2. Setup Instructions (Choose Any Method)</span>
+
+                    <!-- Method 1: Direct in ApexMonitor.exe -->
+                    <div class="bg-gradient-to-r from-indigo-950/60 to-slate-950/60 p-4 rounded-xl border border-indigo-700/50 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white text-sm flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                                Direct Setup in ApexMonitor.exe (Fastest & Zero Extra Files)
+                            </span>
+                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-bold">Recommended</span>
+                        </div>
+                        <p class="text-slate-300 text-[11px]">If you sent or downloaded only <strong class="text-indigo-300">ApexMonitor.exe</strong> to the other laptop:</p>
+                        <ol class="list-decimal list-inside text-slate-300 space-y-1.5 text-[11px] pl-1">
+                            <li>Launch <strong class="text-indigo-400">ApexMonitor.exe</strong> on the employee laptop.</li>
+                            <li>At the bottom of the window, click <strong class="text-indigo-300">⚙️ Server Configuration & Network Settings</strong>.</li>
+                            <li>In the popup, set <strong>Server IP / Hostname</strong> to <code class="mono-font bg-slate-900 px-1.5 py-0.5 rounded text-emerald-400 font-bold">{{ server_lan_ip }}</code> and <strong>Port</strong> to <code class="mono-font bg-slate-900 px-1.5 py-0.5 rounded text-emerald-400 font-bold">{{ server_port }}</code>.</li>
+                            <li>Click the blue <strong class="text-indigo-400">Save Settings</strong> button.</li>
+                            <li>On the main screen, click <strong class="text-slate-200 bg-slate-800 px-2 py-0.5 rounded font-semibold">👤 Continue without Password (Employee Mode)</strong>.</li>
+                        </ol>
+                        <div class="bg-indigo-950/40 p-2.5 rounded-lg border border-indigo-800/40 text-[10px] text-indigo-200">
+                            ✓ The application will immediately minimize to the system tray and stream live screen telemetry to this dashboard!
+                        </div>
+                    </div>
+
+                    <!-- Method 2: Zero-Config Folder Setup -->
+                    <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white text-sm flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                                Zero-Config Auto-Connect (Place with app_config.json)
+                            </span>
+                            <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">Automatic</span>
+                        </div>
+                        <ol class="list-decimal list-inside text-slate-300 space-y-1 text-[11px] pl-1">
+                            <li>Download <strong class="text-indigo-400">ApexMonitor.exe</strong> and the generated <strong class="text-indigo-400">app_config.json</strong>.</li>
+                            <li>Copy both files into the <strong>same folder</strong> on the other laptop (e.g. <code class="mono-font text-slate-400">C:\ApexMonitor\</code> or Desktop).</li>
+                            <li>Double-click <strong class="text-indigo-400">ApexMonitor.exe</strong> and click <strong>Employee Mode</strong>. It connects instantly with no manual typing!</li>
+                        </ol>
+                    </div>
+
+                    <!-- Method 3: Silent PowerShell 1-Liner -->
+                    <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white text-sm flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                                Silent Automated PowerShell 1-Liner (IT Admin)
+                            </span>
+                            <button onclick="copyModalDeployScript()" id="btn-copy-modal-deploy" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded text-[10px] font-semibold transition cursor-pointer">
+                                📋 Copy Script
+                            </button>
+                        </div>
+                        <p class="text-slate-400 text-[10px]">Run this command in Windows PowerShell on the target laptop to install, configure autostart on Windows logon, and run silently:</p>
+                        <pre id="modal-powershell-cmd" class="bg-slate-900 p-2.5 rounded-lg mono-font text-[10px] text-emerald-300 overflow-x-auto select-all border border-slate-800">powershell -Command "mkdir 'C:\ProgramData\AnuvadiniDetector' -Force; Invoke-WebRequest -Uri 'http://{{ server_lan_ip }}:{{ server_port }}/download/ApexMonitor.exe' -OutFile 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe'; Invoke-WebRequest -Uri 'http://{{ server_lan_ip }}:{{ server_port }}/download/app_config.json?host={{ server_lan_ip }}&port={{ server_port }}&department=Engineering' -OutFile 'C:\ProgramData\AnuvadiniDetector\app_config.json'; schtasks /create /tn 'AnuvadiniAgent' /tr 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe' /sc onlogon /rl highest /f; Start-Process 'C:\ProgramData\AnuvadiniDetector\ApexMonitor.exe'"</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Frontend Core Application Logic -->
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
