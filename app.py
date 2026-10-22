@@ -35,8 +35,8 @@ except Exception:
 
 # Default Configuration
 DEFAULT_CONFIG = {
-    "server_host": "innovation-tax-minute-category.trycloudflare.com",
-    "server_port": 80,
+    "server_host": "127.0.0.1",
+    "server_port": 8000,
     "frame_interval": 2.5
 }
 

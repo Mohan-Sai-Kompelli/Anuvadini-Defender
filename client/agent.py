@@ -83,8 +83,8 @@ def load_agent_config() -> dict:
 
 AGENT_CONFIG = load_agent_config()
 
-DEFAULT_SERVER_HOST = AGENT_CONFIG.get("server_host", "innovation-tax-minute-category.trycloudflare.com")
-DEFAULT_SERVER_PORT = int(AGENT_CONFIG.get("server_port", 80))
+DEFAULT_SERVER_HOST = AGENT_CONFIG.get("server_host", "127.0.0.1")
+DEFAULT_SERVER_PORT = int(AGENT_CONFIG.get("server_port", 8000))
 _proto = "wss" if (DEFAULT_SERVER_PORT in (80, 443) or "trycloudflare.com" in DEFAULT_SERVER_HOST) else "ws"
 _host_clean = DEFAULT_SERVER_HOST.replace("https://", "").replace("http://", "").replace("wss://", "").replace("ws://", "").rstrip("/")
 if DEFAULT_SERVER_PORT in (80, 443) or "trycloudflare.com" in _host_clean:
