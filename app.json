@@ -1,0 +1,22 @@
+{
+  "name": "NATSAttendance",
+  "displayName": "NATSAttendance",
+  "expo": {
+    "name": "NATSAttendance",
+    "slug": "nats-attendance",
+    "version": "1.0.0",
+    "ios": {
+      "bundleIdentifier": "com.NATSAttendance.myapp",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.NATSAttendance.myapp",
+      "versionCode": 1
+    },
+    "extra": {
+      "eas": {
+        "projectId": "de487ce0-fdef-4e35-af7d-3a8017738c17"
+      }
+    }
+  }
+}

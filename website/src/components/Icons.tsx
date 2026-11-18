@@ -1,0 +1,20 @@
+// Lucide icons under the short names used across the site.
+export {
+  ArrowRight,
+  Check,
+  Clock,
+  BarChart3 as Chart,
+  FileText as File,
+  CalendarDays as Cal,
+  Users,
+  MessageSquare as Chat,
+  Globe,
+  Code2 as Code,
+  LayoutGrid as Grid,
+  ShieldCheck as Shield,
+  Lock,
+  Eye,
+  X as Close,
+  MapPin,
+  Fingerprint,
+} from 'lucide-react';

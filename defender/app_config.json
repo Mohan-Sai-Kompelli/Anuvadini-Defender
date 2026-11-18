@@ -1,0 +1,7 @@
+{
+  "server_host": "127.0.0.1",
+  "server_port": 8055,
+  "node_port": 5001,
+  "department": "Engineering",
+  "frame_interval": 2.5
+}

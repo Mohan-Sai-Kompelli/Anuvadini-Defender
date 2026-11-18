@@ -1,0 +1,172 @@
+diff --git a/node_modules/react-native-background-actions/android/.classpath b/node_modules/react-native-background-actions/android/.classpath
+new file mode 100644
+index 0000000..0a3280e
+--- /dev/null
++++ b/node_modules/react-native-background-actions/android/.classpath
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<classpath>
++	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-21/"/>
++	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
++	<classpathentry kind="output" path="bin/default"/>
++</classpath>
+diff --git a/node_modules/react-native-background-actions/android/.project b/node_modules/react-native-background-actions/android/.project
+new file mode 100644
+index 0000000..906dead
+--- /dev/null
++++ b/node_modules/react-native-background-actions/android/.project
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<projectDescription>
++	<name>react-native-background-actions</name>
++	<comment>Project react-native-background-actions created by Buildship.</comment>
++	<projects>
++	</projects>
++	<buildSpec>
++		<buildCommand>
++			<name>org.eclipse.jdt.core.javabuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++		<buildCommand>
++			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++	</buildSpec>
++	<natures>
++		<nature>org.eclipse.jdt.core.javanature</nature>
++		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
++	</natures>
++	<filteredResources>
++		<filter>
++			<id>1784827177327</id>
++			<name></name>
++			<type>30</type>
++			<matcher>
++				<id>org.eclipse.core.resources.regexFilterMatcher</id>
++				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
++			</matcher>
++		</filter>
++	</filteredResources>
++</projectDescription>
+diff --git a/node_modules/react-native-background-actions/android/.settings/org.eclipse.buildship.core.prefs b/node_modules/react-native-background-actions/android/.settings/org.eclipse.buildship.core.prefs
+new file mode 100644
+index 0000000..1675490
+--- /dev/null
++++ b/node_modules/react-native-background-actions/android/.settings/org.eclipse.buildship.core.prefs
+@@ -0,0 +1,2 @@
++connection.project.dir=../../../android
++eclipse.preferences.version=1
+diff --git a/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java b/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java
+index 963b788..780263c 100644
+--- a/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java
++++ b/node_modules/react-native-background-actions/android/src/main/java/com/asterinet/react/bgactions/RNBackgroundActionsTask.java
+@@ -7,6 +7,8 @@ import android.app.NotificationManager;
+ import android.app.PendingIntent;
+ import android.content.Context;
+ import android.content.Intent;
++import android.content.pm.PackageManager;
++import android.content.pm.ServiceInfo;
+ import android.net.Uri;
+ import android.os.Build;
+ import android.os.Bundle;
+@@ -15,6 +17,7 @@ import androidx.annotation.NonNull;
+ import androidx.annotation.Nullable;
+ import androidx.core.app.NotificationCompat;
+ import androidx.core.app.ServiceCompat;
++import androidx.core.content.ContextCompat;
+ 
+ import com.facebook.react.HeadlessJsTaskService;
+ import com.facebook.react.bridge.Arguments;
+@@ -97,21 +100,63 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
+         // Create the notification
+         final Notification notification = buildNotification(this, bgOptions);
+ 
++        // HeadlessJsTaskService runs as START_REDELIVER_INTENT, so Android re-delivers
++        // the LAST start intent after a process death. An intent persisted from a build
++        // whose JS didn't pass foregroundServiceType yields type 0 ("none"), which on
++        // targetSdk 34+ throws InvalidForegroundServiceTypeException and crash-loops the
++        // whole app on every launch. Fall back to the manifest-declared type (location).
++        int foregroundServiceType = bgOptions.getForegroundServiceType();
++        if (foregroundServiceType == 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
++            foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
++        }
++
++        // A LOCATION-type foreground service requires a location runtime permission
++        // on Android 14+ (targetSdk 34+): starting it without one throws an uncaught
++        // SecurityException that crash-loops the whole app (a sticky/redelivered or
++        // boot-receiver start keeps retrying after the permission was revoked).
++        //
++        // We cannot simply stopSelf() here: the service was launched via
++        // startForegroundService(), so NOT calling startForeground() within a few
++        // seconds makes the OS throw ForegroundServiceDidNotStartInTimeException —
++        // trading one crash for another. Instead, when the location permission is
++        // missing, satisfy the contract with a plain (type-less) foreground and then
++        // stop immediately: with no permission there is nothing to track anyway.
++        final boolean bailNoPermission =
++                foregroundServiceType == ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
++                        && !hasLocationPermission();
++
+         try {
+-            ServiceCompat.startForeground(
+-                this,
+-                SERVICE_NOTIFICATION_ID,
+-                notification,
+-                bgOptions.getForegroundServiceType()
+-            );
+-        } catch (RuntimeException e) {
+-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+-                    && e instanceof android.app.ForegroundServiceStartNotAllowedException) {
+-                // Android 12+: not allowed to start foreground service from background
+-                stopSelf(startId);
+-                return START_NOT_STICKY;
++            if (bailNoPermission) {
++                // TYPE_NONE foreground: needs no location permission, so it can
++                // never throw SecurityException, yet still satisfies the OS's
++                // "must call startForeground()" requirement. (Explicit NONE — the
++                // 2-arg startForeground() would inherit the manifest's location
++                // type on API 34 and throw without the permission.)
++                ServiceCompat.startForeground(
++                    this,
++                    SERVICE_NOTIFICATION_ID,
++                    notification,
++                    ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
++                );
++            } else {
++                ServiceCompat.startForeground(
++                    this,
++                    SERVICE_NOTIFICATION_ID,
++                    notification,
++                    foregroundServiceType
++                );
+             }
+-            throw e;
++        } catch (RuntimeException e) {
++            // Any failure to bring up the foreground service (permission revoked →
++            // SecurityException, background-start restriction, bad/stale service
++            // type, …) must never crash the host app. Drop this start and stop.
++            stopSelf(startId);
++            return START_NOT_STICKY;
++        }
++
++        if (bailNoPermission) {
++            stopSelf(startId);
++            return START_NOT_STICKY;
+         }
+         return super.onStartCommand(intent, flags, startId);
+     }
+@@ -128,6 +173,13 @@ final public class RNBackgroundActionsTask extends HeadlessJsTaskService {
+         stopSelf(startId);
+     }
+ 
++    private boolean hasLocationPermission() {
++        return ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
++                == PackageManager.PERMISSION_GRANTED
++                || ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION)
++                == PackageManager.PERMISSION_GRANTED;
++    }
++
+     private void createNotificationChannel(@NonNull final String taskTitle, @NonNull final String taskDesc) {
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+             final int importance = NotificationManager.IMPORTANCE_LOW;

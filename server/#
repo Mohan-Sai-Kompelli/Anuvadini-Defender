@@ -1,0 +1,48 @@
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node index.js`[39m
+Firebase Admin SDK initialized successfully
+(node:9326) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:9326) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+Connected to MongoDB
+Starting cron jobs...
+Cron job 'expiringWFH' started
+Cron job 'expiredWFH' started
+Cron job 'cleanupTokens' started
+Cron job 'planSpotChecks' started
+Cron job 'evaluateSpotChecks' started
+Cron job 'detectAbsences' started
+Cron job 'classReminders' started
+Cron job 'missingLogReminders' started
+Planning spot-check rounds for today...
+Server running on port 5001
+[SpotCheck] Planned 0 auto rounds across 10 orgs
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node index.js`[39m
+Firebase Admin SDK initialized successfully
+(node:11329) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11329) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+Connected to MongoDB
+Starting cron jobs...
+Cron job 'expiringWFH' started
+Cron job 'expiredWFH' started
+Cron job 'cleanupTokens' started
+Cron job 'planSpotChecks' started
+Cron job 'evaluateSpotChecks' started
+Cron job 'detectAbsences' started
+Cron job 'classReminders' started
+Cron job 'missingLogReminders' started
+Planning spot-check rounds for today...
+Server running on port 5001
+[SpotCheck] Planned 0 auto rounds across 10 orgs
+::1 - - [14/Jun/2026:18:28:58 +0000] "OPTIONS /api/portal/live-locations HTTP/1.1" 204 0 "http://localhost:3005/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+::1 - - [14/Jun/2026:18:28:58 +0000] "OPTIONS /api/portal/geofence-alerts?limit=60 HTTP/1.1" 204 0 "http://localhost:3005/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+::1 - - [14/Jun/2026:18:28:58 +0000] "GET /api/portal/geofence-alerts?limit=60 HTTP/1.1" 304 - "http://localhost:3005/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+::1 - - [14/Jun/2026:18:28:58 +0000] "GET /api/portal/live-locations HTTP/1.1" 200 891 "http://localhost:3005/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"

@@ -1,0 +1,119 @@
+/* StackStory.css - Premium Card Stacking Scroll Transitions */
+
+.stack-story {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .stack-story {
+    width: calc(100vw - 256px);
+    margin-left: calc(50% - (100vw - 256px) / 2);
+    margin-right: 0;
+  }
+}
+
+.stack-card {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 64px; 
+  width: 100%;
+  background-color: #f8fafc; /* Matches slate-50 light mode background */
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+/* Dark mode override */
+:global(.dark) .stack-card,
+.dark .stack-card {
+  background-color: #020617; /* Matches slate-950 dark mode background */
+}
+
+@media (min-width: 768px) {
+  .stack-card {
+    height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 40px;
+    overflow: hidden;
+  }
+
+  .stack-card:not(.is-first) {
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+    border-top-left-radius: 32px;
+    border-top-right-radius: 32px;
+    box-shadow: 0 -20px 40px -15px rgba(10, 20, 36, 0.08);
+  }
+
+  :global(.dark) .stack-card:not(.is-first),
+  .dark .stack-card:not(.is-first) {
+    border-top: 1px solid rgba(30, 41, 59, 0.8);
+    box-shadow: 0 -20px 40px -15px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Ensure the contents scale down nicely from the center to prevent height overflow */
+.stack-scale {
+  width: 100%;
+  transform-origin: center center;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+/* Spacer elements between sticky cards to create scroll depth */
+.stack-spacer {
+  height: 60vh;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* Graceful degradation / Fallbacks */
+@media (max-width: 767px) {
+  .stack-card {
+    position: relative !important;
+    top: 0 !important;
+    margin-bottom: 24px !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    height: auto !important;
+  }
+  .stack-scale {
+    transform: none !important;
+  }
+  .stack-spacer {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack-card {
+    position: relative !important;
+    top: 0 !important;
+    margin-bottom: 24px !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    height: auto !important;
+  }
+  .stack-scale {
+    transform: none !important;
+  }
+  .stack-spacer {
+    display: none !important;
+  }
+}
+

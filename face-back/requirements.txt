@@ -1,0 +1,19 @@
+flask
+flask-cors
+python-dotenv
+pymongo[srv]
+numpy
+opencv-python
+torch
+torchvision
+facenet-pytorch
+ultralytics
+waitress
+requests
+
+# OPTIONAL — additive ArcFace (InsightFace buffalo_l = SCRFD + ArcFace) second
+# opinion. The system runs facenet-only without these; install to activate the
+# ensemble (see arcface_service.py). Recommended on Python 3.9-3.12 (prebuilt
+# wheels). First use downloads the ~300MB buffalo_l pack into ~/.insightface.
+# insightface
+# onnxruntime

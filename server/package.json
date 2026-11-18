@@ -1,0 +1,43 @@
+{
+  "name": "biometric-auth-server",
+  "version": "1.0.0",
+  "description": "Backend for biometric authentication dashboard",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "dev:log": "mkdir -p logs && nodemon index.js 2>&1 | tee -a logs/backend.log",
+    "logs": "tail -f logs/backend.log"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "axios": "^1.11.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-validator": "^7.0.1",
+    "firebase-admin": "^13.6.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "form-data": "^4.0.4",
+    "helmet": "^7.1.0",
+    "http-proxy-middleware": "^3.0.5",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^6.10.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "passport-local": "^1.0.0",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

@@ -1,0 +1,67 @@
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, '15.5'
+prepare_react_native_project!
+
+# react-native-firebase: build Firebase pods as static frameworks so they link
+# cleanly alongside the (statically linked) VisionCamera/Skia/Reanimated/Nitro
+# pods without a global `use_frameworks!` (which those pods don't support).
+$RNFirebaseAsStaticFramework = true
+
+# The app captures stills via takePhoto/takeSnapshot and runs ML Kit on them; it
+# does NOT use VisionCamera Frame Processors. Disabling them drops the
+# react-native-worklets-core dependency (and its New-Arch codegen), which isn't a
+# direct dependency here and otherwise fails to generate RNWorkletsSpec.h.
+$VCEnableFrameProcessors = false
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'NATSAttendance' do
+  config = use_native_modules!
+
+  # Firebase (built as static frameworks via $RNFirebaseAsStaticFramework) imports
+  # GoogleUtilities from Swift, but GoogleUtilities ships without a module map.
+  # Give it (and the transitively-required pods) modular headers so they can be
+  # imported as static libraries — without a global use_frameworks!, which the
+  # VisionCamera/Skia/Reanimated/Nitro pods don't support.
+  pod 'GoogleUtilities', :modular_headers => true
+
+  # react-native-image-crop-picker 0.40.2 uses the TOCropViewController 2.x API
+  # (TOCropViewController.customAspectRatio). Its podspec doesn't pin a version,
+  # so CocoaPods otherwise pulls 3.x which removed that property and fails to
+  # compile. Pin to the last 2.x release.
+  pod 'TOCropViewController', '~> 2.7.4'
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+
+    # Normalize every pod's deployment target to the app's (15.5). Several pods
+    # (and MLKit/Firebase transitive deps) ship lower minimums, which trips
+    # "deployment target is set to X" warnings/errors under Xcode 16+.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      end
+    end
+  end
+end

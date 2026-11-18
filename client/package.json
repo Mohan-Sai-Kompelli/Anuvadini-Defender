@@ -1,0 +1,75 @@
+{
+  "name": "biometric-auth-client",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@gsap/react": "^2.1.1",
+    "@mui/icons-material": "^7.3.7",
+    "@mui/material": "^7.3.7",
+    "@mui/x-date-pickers": "^8.24.0",
+    "@react-google-maps/api": "^2.20.8",
+    "@react-three/fiber": "^8.17.10",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "apexcharts": "^5.3.4",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^11.11.17",
+    "gsap": "^3.12.5",
+    "leaflet": "^1.9.4",
+    "lenis": "^1.3.23",
+    "lucide-react": "^0.294.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^18.2.0",
+    "react-apexcharts": "^1.7.0",
+    "react-datepicker": "^4.25.0",
+    "react-dom": "^18.2.0",
+    "react-dropzone": "^14.2.3",
+    "react-hook-form": "^7.48.2",
+    "react-hot-toast": "^2.4.1",
+    "react-leaflet": "^4.2.1",
+    "react-mic": "^12.4.6",
+    "react-router-dom": "^6.20.1",
+    "react-scripts": "^5.0.1",
+    "react-toastify": "^11.0.5",
+    "react-webcam": "^7.2.0",
+    "recharts": "^2.8.0",
+    "tailwind-merge": "^2.0.0",
+    "three": "^0.169.0"
+  },
+  "scripts": {
+    "start": "craco start --port 19055",
+    "build": "craco build",
+    "test": "craco test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@craco/craco": "^7.1.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6"
+  },
+  "proxy": "http://localhost:5001"
+}

@@ -1,348 +1,326 @@
 <div align="center">
 
-# 🛡️ Anuvadini Defender (ApexMonitor Enterprise)
-### Next-Gen Real-Time Endpoint Surveillance, Anti-Gaming Grid & AI Vision Audit Engine
+# Anuvadini — Attendance + Defender
 
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![WebSockets](https://img.shields.io/badge/WebSockets-Real--Time%20Delta-4B8BBE?style=for-the-badge&logo=websocket&logoColor=white)](https://websockets.readthedocs.io/)
-[![NVIDIA NIM](https://img.shields.io/badge/NVIDIA%20NIM-Vision%20AI%20Audit-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://build.nvidia.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+**Biometric attendance, live workplace monitoring and a reporting dashboard — in one platform.**
 
-<br/>
+[![Node](https://img.shields.io/badge/Node.js-%E2%89%A518-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-engine-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com)
+[![License](https://img.shields.io/badge/license-see%20LICENSE-lightgrey)](LICENSE)
 
-**Anuvadini Defender** is a high-throughput, low-latency enterprise endpoint surveillance, gaming detection, and compliance grid. Engineered to smoothly manage **200+ concurrent live desktop streams**, it combines an **8-stage multi-layered heuristic detection pipeline** with **NVIDIA NIM Multimodal AI Vision Auditing** to detect non-work activities, unauthorized gaming, forex trading, and anti-AFK evasion with sub-second responsiveness.
-
-[Key Highlights](#-key-highlights) • [Architecture](#-system-architecture) • [8-Stage Pipeline](#-8-stage-detection-pipeline) • [NVIDIA NIM AI Vision](#-nvidia-nim-ai-vision-auditing) • [Quickstart](#-quickstart--installation) • [Deployment](#-enterprise-deployment) • [Dashboard](#-enterprise-dashboard-features)
-
----
+[Overview](#-overview) · [Architecture](#-architecture) · [Quick start](#-quick-start) · [Configuration](#-configuration) · [Deployment](#-deployment) · [Security](#-security--privacy) · [Troubleshooting](#-troubleshooting)
 
 </div>
 
-## 🌟 Key Highlights
+---
 
-- **🚀 Ultra-Low Latency Delta Broadcasting**: Replaces naive whole-cluster broadcasting with an $O(1)$ single-client delta protocol, slashing server outbound bandwidth from **~160 MB/s to ~600 KB/s** across 200 live nodes.
-- **⚡ Zero DOM Thrashing UI Engine**: High-performance dark-mode grid UI with keyed DOM targeting. Renders 200 live 16:9 desktop thumbnails at 60 FPS without tab freezing or memory leaks.
-- **🧠 Multimodal AI Vision Forensics (NVIDIA NIM)**: Automated visual auditing powered by `meta/llama-3.2-11b-vision-instruct`, classifying desktop snapshots into `WORK`, `GAMING`, `STREAMING`, `SOCIAL`, or `ANTI_AFK` with cryptographic chain-of-custody.
-- **🛡️ 8-Stage Heuristic Detection Pipeline**: Continuous real-time inspection covering process signatures (120+ games, 13 launchers, 16 emulators, forex/crypto terminals), active window scanning, gamepad detection, PE header disguise verification, and Alt+Tab defense.
-- **🕒 Autonomous Shift Scheduler**: Automated work schedules (09:30 – 17:30 Mon–Sat) with lunch break grace periods (13:00 – 14:00) and manual supervisor override controls (`AUTO`, `FORCE_WORK`, `FORCE_STANDBY`).
-- **🔒 Anti-Tamper & Cryptographic Proof**: GDI desktop capture with SHA-256 tamper-evident proof chains, protected process watchdog, and automated Windows Scheduled Task persistence.
-- **📊 SQLite Enterprise Analytics**: Persistent violation tracking, hourly productivity breakdowns (08:00–19:00), department-level health scoring, and historical audit logs.
+## ✨ Overview
+
+Anuvadini brings two closely connected systems together:
+
+| | What it does | Who uses it |
+|---|---|---|
+| **🗓️ Attendance** | Face-verified check-in and check-out, geofencing, leave and work-from-home requests, timesheets, spot checks, reports | Faculty, heads of institute (HOI), super admins, students |
+| **🛡️ Defender** | Workplace monitoring on employee PCs: screen time, apps and websites, focus, live screens, incidents, firewall exceptions, reports | Administrators and HR |
+
+Both share one login, one database and one dashboard, with an **Attendance / Defender** switch in the sidebar.
+
+## 🚀 Highlights
+
+- **Face attendance** with liveness and anti-spoofing checks (ArcFace / FaceNet-style matching, PAD models in `face-back/`)
+- **Live Defender dashboard**: workstation health, live screens, webcam (only where the admin allows it), incidents by category
+- **Usage history**: screen time and focus per person, team or everyone; website and app **focus rules**; tracking exclusions
+- **Reports**: CSV exports (day by day, apps and sites, incidents) and PDF reports for a person, a team or everyone, over any date range
+- **Mobile app** (React Native / Expo) in the repository root
+- **Operations**: PM2, Docker Compose, Kubernetes manifests and Nginx configuration included
 
 ---
 
-## 🏛️ System Architecture
+## 🏗️ Architecture
 
 ```mermaid
-flowchart TB
-    subgraph Endpoints ["🖥️ Monitored Endpoints (up to 200+ Nodes)"]
-        A1["Workstation Node 001\n(Agent / ApexMonitor.exe)"]
-        A2["Workstation Node 002\n(Agent / ApexMonitor.exe)"]
-        A3["Workstation Node N...\n(Agent / ApexMonitor.exe)"]
+flowchart LR
+    subgraph Clients
+        W[Web dashboard<br/>React · client/]
+        M[Mobile app<br/>React Native · root]
+        A[Employee PC agent<br/>Python · defender/]
     end
 
-    subgraph Pipeline ["🔍 8-Stage Detection Engine (Agent Core)"]
-        S1["1. Custom Rules Engine"] --> S2["2. Process Signatures (120+ Games/Forex)"]
-        S2 --> S3["3. Window-Title Pattern Matching"]
-        S3 --> S4["4. Fullscreen + Gamepad Heuristic (XInput)"]
-        S4 --> S5["5. Background / Alt+Tab Scanner"]
-        S5 --> S6["6. Anti-Bypass / Anti-AFK Jiggler Trap"]
-        S6 --> S7["7. Network Gaming Socket Inspection"]
-        S7 --> S8["8. PE Header Cloaking & Renamed Exe Check"]
+    subgraph Server
+        G[API gateway<br/>Node.js · Express · server/<br/>port 5001]
+        E[Defender engine<br/>FastAPI · defender/<br/>127.0.0.1:8055]
+        F[Face services<br/>Python · face-back/<br/>port 50011]
     end
 
-    Endpoints --> Pipeline
+    DB[(MongoDB)]
 
-    subgraph Hub ["⚡ Anuvadini Defender Central Hub (FastAPI + Uvicorn)"]
-        WS["WebSocket Ingestion Gateway\n(/ws/client/)"]
-        Delta["Delta Broadcast Engine\n(O(1) Delta Dispatch)"]
-        DB[(SQLite WAL Engine\nanuvadini.db)]
-        Enforce["Remote Action Enforcer\n(Kill Process / Warning Alert)"]
-    end
+    W -->|/api| G
+    M -->|/api| G
+    A -->|heartbeats, frames| E
+    G -->|/api/defender| E
+    G --> F
+    G --> DB
+    E --> DB
+```
 
-    Pipeline -- "Compressed Frames (~12KB) + State Telemetry" --> WS
-    WS --> Delta
-    WS --> DB
-    Enforce -- "Remote Control Signals" --> Endpoints
+| Part | Folder | Stack | Default port |
+|---|---|---|---|
+| API gateway (attendance + auth + proxy to Defender) | `server/` | Node.js, Express, Mongoose | `5001` (`PORT`) |
+| Defender engine (monitoring API, usage, reports) | `defender/` | Python, FastAPI, Uvicorn, PyMongo | `127.0.0.1:8055` |
+| PC agent (runs on employee machines) | `defender/anuvadini_detector/` | Python, PyInstaller build | — |
+| Face verification and anti-spoofing | `face-back/` | Python, Waitress | `50011` |
+| Web dashboard | `client/` | React (Create React App + craco) | dev `19055` |
+| Mobile app | root (`App.js`, `src/`, `ios/`) | React Native, Expo | — |
 
-    subgraph AI ["🧠 NVIDIA NIM Cloud Forensics"]
-        NIM["Llama-3.2-11B-Vision-Instruct\n/ Nemotron 22B"]
-    end
+## 📁 Repository layout
 
-    DB -. "Suspicious Frame Verification" .-> NIM
-    NIM -. "AI Classification & Confidence Score" .-> DB
-
-    subgraph Dashboard ["💻 Admin Monitoring Station (Web Browser)"]
-        UI["Real-Time Monitoring Grid\n(Keyed DOM Updates + Audio Chime)"]
-    end
-
-    Delta -- "WebSocket Delta Events (/ws/admin/)" --> UI
+```text
+.
+├── server/                  # Node.js API gateway (auth, attendance, portal, Defender proxy)
+│   ├── index.js             # entry point (PORT, Mongo, routes)
+│   ├── routes/ middleware/ models/ services/ controllers/ scripts/
+│   └── env.example          # every setting, with placeholders only
+├── defender/                # Defender engine + PC agent
+│   ├── main.py              # starts the engine (uvicorn)
+│   ├── requirements.txt
+│   ├── anuvadini_detector/  # monitoring, usage, firewall, reports, agent
+│   └── AnuvadiniDefender.spec / build_exe.ps1   # PC agent packaging
+├── client/                  # React dashboard (Attendance + Defender pages)
+│   └── src/pages/defender/  # Defender pages: People & teams, Usage history, Live screens…
+├── face-back/               # face verification + anti-spoofing services
+├── src/ App.js index.js     # React Native mobile app
+├── ios/ eas.json            # mobile platform projects / build config
+├── docs/                    # design and operations notes
+├── scripts/ patches/        # helper scripts and patches
+├── docker-compose.yml       # local stack (backend, Mongo, Redis, dashboard, Nginx, monitoring)
+├── Dockerfile.backend / Dockerfile.web
+├── k8s-manifests.yaml       # Kubernetes example
+├── ecosystem.config.js      # PM2 process file (no secrets; read from environment)
+└── nginx.conf / nginx.conf.template
 ```
 
 ---
 
-## ⚡ The 200-Endpoint Concurrency Breakthrough
+## ⚡ Quick start
 
-Traditional surveillance prototypes fail when scaling beyond 10-15 workstations. Here is how **Anuvadini Defender** achieves scalable 200+ node concurrency:
+### 1. Prerequisites
 
-| Metric / Dimension | Naive Traditional Broadcast | Anuvadini Defender Delta Grid | Optimization Factor |
-| :--- | :--- | :--- | :--- |
-| **Broadcast Protocol** | Full snapshot of all 200 clients on every tick | Keyed single-client delta update (`client_update`) | **$O(N) \to O(1)$** |
-| **Outbound Network Load** | `200 clients × 20KB × 40/s = ~160 MB/s` | `1 client delta × 12KB × 40/s = ~600 KB/s` | **~266× Bandwidth Reduction** |
-| **DOM Manipulation** | `grid.innerHTML = ""` re-decoding 200 base64 images 40/s | Keyed node caching (`#card-WS-001`), in-place `.src` swap | **Zero DOM Thrash (60 FPS)** |
-| **Client Encoding** | Uncompressed raw PNG / heavy bicubic resize | 400×225 Bilinear downscaling + JPEG Quality 35–38 | **< 1.5% Client CPU Overhead** |
-| **Memory Footprint** | Massive leaks from discarded uncollected blobs | Fixed DOM footprint with reused image elements | **Stable Browser Memory (< 90 MB)** |
+- **Node.js 18+** and npm
+- **Python 3.10+**
+- **MongoDB** (Atlas or self-hosted)
+- Optional: **Docker** and Docker Compose, **PM2** for process management
 
----
+### 2. Clone
 
-## 🔍 8-Stage Detection Pipeline
-
-Every monitored endpoint executes the multi-tier inspection pipeline on each cycle:
-
-```
-[ Stage 1: Custom Rules ]          ──> Checks user-defined administrator blacklist/whitelist
-          │
-[ Stage 2: Process Signatures ]    ──> Scans active processes against 120+ PC games, 13 launchers, 16 emulators & trading apps
-          │
-[ Stage 3: Window Title Scan ]     ──> Regex pattern matching for web games, casinos, Twitch/YouTube streams, social media
-          │
-[ Stage 4: Fullscreen + Gamepad ]  ──> Native ctypes XInput/DirectInput polling + Display resolution matching
-          │
-[ Stage 5: Background Window Scan] ──> Alt+Tab defense: detects minimized game instances running silently behind work apps
-          │
-[ Stage 6: Anti-Bypass / Anti-AFK] ──> Detects mouse jigglers, macro software, Cheat Engine, and process suspenders
-          │
-[ Stage 7: Gaming Network Sockets] ──> Inspects open TCP/UDP sockets for known gaming servers (Steam, Riot, Battle.net)
-          │
-[ Stage 8: PE Header Cloaking ]    ──> Validates internal PE file headers to catch renamed binaries (e.g., cs2.exe -> chrome.exe)
-```
-
----
-
-## 🧠 NVIDIA NIM AI Vision Auditing
-
-When a violation or suspicious pattern is identified, Anuvadini Defender integrates with **NVIDIA NIM** to perform deep multimodal visual forensics:
-
-- **Supported Models**:
-  - `meta/llama-3.2-11b-vision-instruct` *(Default / Recommended)*
-  - `meta/llama-3.2-90b-vision-instruct` *(High-Precision Audit)*
-  - `nvidia/neva-22b` *(Enterprise Multi-Modal)*
-  - `microsoft/phi-3.5-vision-instruct` *(Lightweight)*
-- **Audit Classification Categories**:
-  - `WORK`: IDEs, spreadsheets, business correspondence, CAD, terminals.
-  - `GAMING`: 3D gameplay, HUDs, inventory screens, virtual lobbies.
-  - `STREAMING`: Video players, anime streams, live gaming streams.
-  - `SOCIAL`: Social feeds, chat applications, personal messengers.
-  - `ANTI_AFK`: Screen lock evasion tools, artificial mouse movers.
-- **Cryptographic Proof**: Captures GDI desktop state, generates SHA-256 tamper-evident hashes, and maintains a strict chain-of-custody in `violations` table.
-
----
-
-## 📁 Repository Structure
-
-```
-Anuvadini Defender/
-├── app.py                     # Dual-mode standalone executable application (Agent & Supervisor)
-├── app_config.json            # Client configuration (server host, port, department, interval)
-├── installer_wizard.py        # Graphical workstation installer wizard (Tkinter GUI)
-├── mock_clients.py            # High-concurrency synthetic fleet simulator (50-200 nodes)
-├── silent_agent.vbs           # Windows VBScript background launcher
-├── ApexMonitor.spec           # PyInstaller single-file build specification
-│
-├── core/                      # Core detection & security engine
-│   ├── afk.py                 # Native Win32 hardware idle & AFK detector (GetLastInputInfo)
-│   ├── anti_tamper.py         # Anti-debugging, registry watchdog, and file permission integrity
-│   ├── controller.py          # Native XInput / DirectInput gamepad detection
-│   ├── database.py            # SQLite WAL persistence, analytics, and fleet health scoring
-│   ├── enforcer.py            # Remote process killer, workstation lock, and desktop alerts
-│   ├── engine.py              # 8-stage detection engine & autonomous shift scheduler
-│   ├── evidence.py            # GDI desktop frame capture & SHA-256 tamper-evident proof
-│   ├── nvidia_nim.py          # NVIDIA NIM multimodal vision API auditor
-│   ├── signatures.py          # Database of 150+ game processes, launchers, emulators, and crypto apps
-│   ├── watchdog.py            # Background heartbeat and process watchdog
-│   └── watcher.py             # Active and background window enumeration via Win32 API
-│
-├── server/                    # Central Hub Server
-│   ├── main.py                # FastAPI server, WebSocket delta broadcaster, and REST API
-│   └── requirements.txt       # Server dependencies (FastAPI, Uvicorn, WebSockets, Jinja2, Psutil)
-│
-├── client/                    # Monitored Agent Module
-│   ├── agent.py               # Lightweight background agent (ctypes, Pillow, PyGetWindow)
-│   └── requirements.txt       # Agent dependencies
-│
-├── dashboard/                 # Admin Monitoring Dashboard
-│   ├── templates/
-│   │   └── index.html         # Enterprise dark-theme monitoring grid
-│   └── static/
-│       ├── css/dashboard.css  # Glassmorphism theme, pulsing alerts, live badges
-│       └── js/dashboard.js    # Keyed DOM update engine & Web Audio chime alerts
-│
-├── deploy/                    # Containerization & Services
-│   ├── Dockerfile             # Production container definition
-│   ├── docker-compose.yml     # Docker Compose orchestration
-│   ├── apexmonitor.service    # Linux systemd service configuration
-│   ├── apexmonitor-user.service
-│   └── apexmonitor-local.service
-│
-├── build_exe.bat / .ps1       # PyInstaller one-click executable compiler
-├── setup_venv.bat / .ps1      # Automated virtual environment and dependency setup
-├── start_server.bat / .ps1 / .sh    # Starts Central Hub server
-├── start_agent.bat / .ps1 / .sh     # Starts local monitoring agent
-└── start_simulator.bat / .ps1 / .sh # Starts 50-node fleet stress test
-```
-
----
-
-## 🚀 Quickstart & Installation
-
-### Prerequisites
-- **Python 3.10+** installed and added to `PATH`
-- **Windows 10 / 11** (for monitored client agent; Linux/macOS fully supported for Central Hub Server)
-
-### Step 1: Clone the Repository
 ```bash
 git clone https://github.com/Mohan-Sai-Kompelli/Anuvadini-Defender.git
-cd "Anuvadini-Defender"
+cd Anuvadini-Defender
 ```
 
-### Step 2: Automated Virtual Environment Setup
-Run the automated setup script to create `.venv` and install all dependencies:
-```cmd
-setup_venv.bat
-```
-*Or manually via PowerShell / Bash:*
+### 3. Configure
+
+Copy the example settings and fill in **your own** values. Never commit real values.
+
 ```bash
+cp server/env.example server/.env
+```
+
+See [Configuration](#-configuration) for every variable.
+
+### 4. Start the API gateway
+
+```bash
+cd server
+npm install
+npm start
+```
+
+### 5. Start the Defender engine
+
+```bash
+cd defender
 python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
-
-pip install -r server/requirements.txt
-pip install -r client/requirements.txt
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
 ```
 
-### Step 3: Launch the Central Hub Server
-```cmd
-start_server.bat
-```
-The server will initialize at **`http://localhost:8000`**.
+### 6. Start the dashboard
 
-### Step 4: Access the Admin Dashboard
-Open your browser and navigate to:
-👉 **[http://localhost:8000](http://localhost:8000)**
-
----
-
-## 🧪 Testing with Agents & Synthetic Fleet
-
-### Option A: Run a Real Monitoring Agent
-```cmd
-start_agent.bat
-```
-*Captures desktop screen, checks active window against games/entertainment patterns, and streams live telemetry to the dashboard.*
-
-### Option B: Launch Unified Dual-Mode App (GUI)
-```cmd
-python app.py
-```
-- **Continue without Password**: Runs in the Windows system taskbar as a monitored workstation agent.
-- **Continue with Password** *(Supervisor Mode)*: Unlocks administrative fleet monitoring and streams telemetry with supervisor privileges.
-
-### Option C: Run 50–200 Node Synthetic Stress Test
-To benchmark server throughput, network latency, and dashboard responsiveness under load:
-```cmd
-start_simulator.bat
-```
-*Spawns 50+ concurrent synthetic endpoints across Engineering, Design, Sales, Finance, and DevOps departments streaming dynamic frames, hardware metrics, and simulated violations.*
-
----
-
-## 🛠️ Workstation Client Deployment
-
-### Standalone Installer Wizard
-Deploying to employee workstations is simplified using the included installation wizard:
-```cmd
-python installer_wizard.py
-```
-**Features of Installer Wizard:**
-1. Prompts for Central Hub Server IP and Port.
-2. Writes persistent `app_config.json`.
-3. Registers Windows Autostart (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
-4. Creates an elevated Windows Scheduled Task (`schtasks /create onlogon`).
-5. Configures file ACLs for anti-tamper resilience.
-
-### Compiling to a Single Standalone Executable
-Compile the client application into a zero-dependency Windows executable:
-```cmd
-build_exe.bat
-```
-The compiled binary will be generated in `dist/ApexMonitor.exe`.
-
----
-
-## 🌐 Enterprise Deployment
-
-### Deploy via Docker & Docker Compose
 ```bash
-cd deploy
-docker-compose up -d --build
+cd client
+npm install
+npm start                        # development server
 ```
 
-### Deploy on Linux Server (Systemd Service)
+For a production build:
+
 ```bash
-sudo cp deploy/apexmonitor.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now apexmonitor
+cd client
+REACT_APP_API_URL=https://your-domain.example/api npm run build
 ```
 
-### Client Remote Connection
-Configure `app_config.json` on client machines:
-```json
-{
-  "server_host": "YOUR_SERVER_IP_OR_DOMAIN",
-  "server_port": 8000,
-  "department": "Engineering",
-  "frame_interval": 2.5
-}
+> `REACT_APP_API_URL` **must** be set at build time. If it is missing, the dashboard falls back to `http://localhost:5001/api`, and sign-in breaks for everyone who is not on that machine.
+
+### 7. (Optional) Face services
+
+```bash
+cd face-back
+pip install -r requirements.txt
+python check.py                  # served with Waitress on port 50011
 ```
-Or set environment variables:
-```cmd
-set MONITOR_SERVER_HOST=10.150.0.6
-set MONITOR_SERVER_PORT=8000
+
+The face-model weights (for example `face-back/deepixbis/DeePixBiS.pth`) are **not** included in this repository. Place them there yourself, following the model's own licence.
+
+### 8. (Optional) Mobile app
+
+```bash
+npm install
+npm start
 ```
 
 ---
 
-## 📊 Enterprise Dashboard Features
+## ⚙️ Configuration
 
-- **🔴 Live Video Wall**: Real-time 16:9 thumbnail streams for each workstation with live status badges (`WORK`, `GAMING`, `IDLE`, `OFF_DUTY`, `LUNCH_BREAK`).
-- **🚨 Instant Visual & Audio Alerting**: Glowing red pulse animations and subtle Web Audio chimes on policy breaches.
-- **🔍 Modal Inspector**: Click any workstation card for high-resolution desktop inspection, active process metadata, and hardware gauges (CPU%, RAM%, Gamepad status).
-- **⏱️ Shift & Lunch Countdown**: Live visualization of shift progress (09:30–17:30) and lunch break grace countdowns (13:00–14:00).
-- **🎯 Remote Enforcement Actions**:
-  - `Terminate Process`: Sends remote termination signal to kill unauthorized game/app.
-  - `Lock Workstation`: Triggers immediate workstation lock screen.
-  - `Send Warning Alert`: Displays custom modal alert dialog on the employee's screen.
-- **📈 Department Analytics**: Live fleet health index, top violation offenders, and hourly activity trends.
+All settings are read from environment variables. Values are never stored in this repository.
+
+<details>
+<summary><b>API gateway (<code>server/</code>)</b></summary>
+
+| Variable | Purpose |
+|---|---|
+| `MONGODB_URI` | Main database connection string |
+| `MONGO_URI` | Alternative name used by some scripts |
+| `PORT` | HTTP port (default `5001`) |
+| `JWT_SECRET`, `JWT_EXPIRE` | Token signing and lifetime. **Required** (no default) |
+| `AUDIT_HMAC_SECRET`, `LIVENESS_HMAC_SECRET` | Signing keys for the audit log and liveness checks. **Required** (fall back to `JWT_SECRET` if unset) |
+| `SUPER_ADMIN_KEY` | Key for super-admin setup routes |
+| `DEFENDER_URL` | Address of the Defender engine (default `http://127.0.0.1:8055`) |
+| `DEFENDER_PUBLIC_URL` | Public address used for PC installers and links |
+| `DEFENDER_AUTOSTART` | Set to `0` to stop the gateway from starting the engine itself |
+| `FACE_API_URL`, `FACE_API_URLS` | Face verification service address(es) |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Path or JSON for push notifications (never commit the file) |
+| `SENDGRID_API_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_PASS` | Outgoing email |
+| `SPOTCHECK_WINDOW`, `SPOTCHECK_BATCH_SIZE`, `SPOTCHECK_MAX_PER_STUDENT_PER_DAY`, `SPOT_CHECK_MIN_SIMILARITY` | Spot-check behaviour |
+| `ANTISPOOF_SCREEN_BLOCK_CHECKINOUT` | Block check-in when a screen replay is suspected |
+| `ACTIVITY_LOG_BUFFER_MIN`, `MISMATCH_ALERT_MAX_SIMILARITY` | Logging and alert thresholds |
+
+</details>
+
+<details>
+<summary><b>Defender engine (<code>defender/</code>)</b></summary>
+
+| Variable | Purpose |
+|---|---|
+| `MONGO_URI` / `MONGODB_URI` | Database connection string |
+| `MONGO_DB_NAME` | Database name |
+| `MONITOR_SERVER_HOST`, `MONITOR_SERVER_PORT`, `PORT` | Where the engine listens (default `127.0.0.1:8055`) |
+| `ANUVADINI_SERVER_HOST`, `ANUVADINI_AGENT_MODE` | How the PC agent reaches the server |
+| `NVIDIA_API_KEY`, `NVIDIA_VLM_API_KEY`, `NVIDIA_VLM_MODEL` | Optional AI review of screenshots |
+| `FACE_MATCH_THRESHOLD`, `MIN_FACE_ENROLL_IMAGES`, `FACE_MIN_IMAGE_SIDE`, `FACE_MIN_AREA_RATIO`, `FACE_NIGHT_MEAN_GRAY`, `FACE_OUTLIER_SIM_FLOOR` | Webcam face-check tuning |
+| `DEFENDER_SEED_DEMO`, `SEED_DEMO_FLEET` | Load demo data (development only) |
+
+</details>
+
+<details>
+<summary><b>Dashboard (<code>client/</code>)</b></summary>
+
+| Variable | Purpose |
+|---|---|
+| `REACT_APP_API_URL` | Public API base, for example `https://your-domain.example/api` (**set at build time**) |
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | Map views (restrict the key to your domains) |
+
+</details>
 
 ---
 
-## 🔒 Security, Integrity & Ethics
+## 🧭 Using Defender
 
-- **Cryptographic Chain of Custody**: Evidence screenshots are hashed using SHA-256 before storage to ensure tamper-evident forensic validity.
-- **Privacy Policy Compliance**: Built-in exclusion lists and lunch grace periods prevent recording during designated personal breaks.
-- **Anti-Tampering Watchdog**: Detects unauthorized process killing, debugger attachment, and configuration file modification.
+- **People & teams** — screen time, focused time, apps and sites, incidents for one person or a team; download CSV or PDF reports.
+- **Usage history** — webcam access, music bar access, teams, tracking exclusions, and **focus rules** (time spent in chosen apps or websites).
+- **Live screens** — live view of employee PCs. The webcam panel appears only where the admin has allowed the webcam.
+- **Incidents and Analytics** — detections by category and by person.
+- **Engine and agents** — engine on/off, office hours, PC installers.
+
+> Keyboard and mouse activity is counted as **hands-on time**, never as keystrokes or pointer positions. Focused time counts only inside keyboard-and-mouse time.
 
 ---
 
-## 📄 License
+## 🚢 Deployment
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+**PM2 (single server).** `ecosystem.config.js` reads every secret from the environment. Set the variables in your shell or a secrets manager, then:
+
+```bash
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+**Docker Compose (local or small server).**
+
+```bash
+docker compose up -d --build
+```
+
+**Kubernetes.** Edit `k8s-manifests.yaml`: create the secret named there from your own values, then apply the manifests.
+
+**Nginx.** Use `nginx.conf` (or `nginx.conf.template`) as a starting point. Terminate TLS in front of the gateway, and proxy `/api` to port `5001`.
+
+**PC agent.** Build the Windows agent with `defender/build_exe.ps1` (PyInstaller, using `AnuvadiniDefender.spec`). Distribute it only to devices whose users have been informed.
+
+---
+
+## 🔐 Security & privacy
+
+- **Never commit** `.env` files, service-account JSON, private keys, or database URIs with passwords. `.gitignore` already excludes the usual files.
+- **Rotate** any database password that has ever appeared in source files or in an older commit, and set the new one only in the environment.
+- **Face and biometric data** (enrolment images, embeddings) and **employee monitoring data** (screenshots, usage records, incidents) are personal data. Keep them in the database or storage on your server, not in the repository.
+- The Defender agent counts **keyboard and mouse activity as time only**. It does not record keystrokes or pointer positions.
+- Webcam capture happens **only** for people the administrator has allowed, and only while the employee has not switched their own camera off.
+- Give the people being monitored clear notice of what is recorded and why.
+
+---
+
+## 🧪 Testing
+
+```bash
+cd client && npm test          # dashboard tests (Create React App)
+```
+
+Defender engine checks are in `defender/tests/`.
+
+---
+
+## 🩺 Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Sign-in fails for everyone except one machine | Dashboard built without `REACT_APP_API_URL` | Rebuild with `REACT_APP_API_URL=https://your-domain/api` |
+| "Defender engine is not running" | Engine stopped or wrong `DEFENDER_URL` | Start `defender/main.py`; check port `8055` |
+| Biometric or attendance lookups time out | Local `BIOMETRIC_MONGODB_URI` database not running | Start that MongoDB instance or point it at a running server |
+| Live screens show "No live signal" | Agent not sending frames, or the browser lacks the sign-in token | Check the agent is online; sign in again |
+| PDF download fails with 503 | `reportlab` not installed in the engine's environment | `pip install -r defender/requirements.txt` |
+| Face check always says "No match" | Enrolment images missing, or threshold too strict | Re-enrol with more images; review `FACE_MATCH_THRESHOLD` |
+
+---
+
+## 🤝 Contributing
+
+1. Create a branch from `main`.
+2. Keep secrets, personal data and build output out of commits.
+3. Run the checks above, then open a pull request with a short description of the change.
+
+## 📄 Licence
+
+See [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
-<b>Anuvadini Defender</b> • Enterprise Endpoint Activity Surveillance & Real-Time Intelligence Grid
+
+Made for safe, fair and well-run workplaces and campuses. ✨
+
 </div>

@@ -1,0 +1,3 @@
+head.glb: "Infinite, 3D Head Scan" by Lee Perry-Smith, based on a work at www.triplegangers.com.
+Licensed under Creative Commons Attribution 3.0 Unported (https://creativecommons.org/licenses/by/3.0/).
+Source: three.js examples (examples/models/gltf/LeePerrySmith).

@@ -1,0 +1,327 @@
+Gh|J#1NoA358groups:
+  - name: marbism_alerts
+    interval: 30s
+    rules:
+      # ===== API & Application Alerts =====
+
+      # High error rate on API
+      - alert: HighAPIErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate on API backend"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 10%)"
+
+      # Slow API response time
+      - alert: SlowAPIResponse
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Slow API response time detected"
+          description: "P99 response time is {{ $value }}s (threshold: 2s)"
+
+      # High API latency
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency"
+          description: "P95 response time is {{ $value }}s"
+
+      # ===== Database Alerts =====
+
+      # Database connection pool exhausted
+      - alert: DBConnectionPoolExhausted
+        expr: mongodb_connections_active / mongodb_connections_available > 0.8
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "MongoDB connection pool near capacity"
+          description: "{{ $value | humanizePercentage }} of connections in use (threshold: 80%)"
+
+      # Database query performance
+      - alert: SlowDatabaseQueries
+        expr: rate(mongodb_op_duration_seconds_bucket{le="+Inf"}[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Slow query rate is {{ $value }} per second"
+
+      # Database replication lag
+      - alert: MongoDBReplicationLag
+        expr: mongodb_replication_set_oplog_diff_milliseconds > 1000
+        for: 2m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "MongoDB replication lag detected"
+          description: "Replication lag is {{ $value }}ms (threshold: 1000ms)"
+
+      # MongoDB down
+      - alert: MongoDBDown
+        expr: up{job="mongodb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "MongoDB is unreachable"
+          description: "MongoDB server is down for more than 1 minute"
+
+      # ===== Cache Alerts =====
+
+      # Redis down
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cache
+        annotations:
+          summary: "Redis cache is unreachable"
+          description: "Redis server is down for more than 1 minute"
+
+      # Redis high memory usage
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "{{ $value | humanizePercentage }} of Redis memory in use (threshold: 90%)"
+
+      # Redis evictions
+      - alert: RedisEvictions
+        expr: rate(redis_evicted_keys_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis is evicting keys"
+          description: "Redis eviction rate is {{ $value }} keys/sec"
+
+      # ===== Infrastructure Alerts =====
+
+      # Low disk space
+      - alert: LowDiskSpace
+        expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining (threshold: 10%)"
+
+      # Critical disk space
+      - alert: CriticalDiskSpace
+        expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.05
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "CRITICAL: Disk space almost full"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+
+      # Very high CPU usage
+      - alert: CriticalCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} (threshold: 95%)"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 85%)"
+
+      # Critical memory usage
+      - alert: CriticalMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 95%)"
+
+      # High network traffic
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_transmit_bytes_total[5m]) > 100000000
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High network traffic on {{ $labels.instance }}"
+          description: "Network transmit rate is {{ $value | humanize }}B/s"
+
+      # ===== Container/Service Alerts =====
+
+      # Backend container down
+      - alert: BackendContainerDown
+        expr: up{job="marbism-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: container
+        annotations:
+          summary: "Backend container is down"
+          description: "MARBISM backend has been unreachable for 1 minute"
+
+      # Web dashboard down
+      - alert: WebDashboardDown
+        expr: up{job="web-dashboard"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: container
+        annotations:
+          summary: "Web dashboard container is down"
+          description: "MARBISM web dashboard is unreachable for 1 minute"
+
+      # Nginx down
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Nginx reverse proxy is down"
+          description: "Nginx has been unreachable for 1 minute"
+
+      # Container restart loop
+      - alert: ContainerRestartLoop
+        expr: rate(container_last_seen{name=~"marbism-.*"}[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: container
+        annotations:
+          summary: "{{ $labels.name }} is restarting frequently"
+          description: "Container restart rate is {{ $value | humanize }}/sec"
+
+      # ===== Network/Proxy Alerts =====
+
+      # High SSL/TLS errors
+      - alert: HighSSLErrors
+        expr: rate(nginx_http_requests_total{status=~"495|496|497"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+        annotations:
+          summary: "High number of SSL/TLS errors"
+          description: "SSL error rate is {{ $value | humanizePercentage }}"
+
+      # High HTTP 5xx errors
+      - alert: HighHTTPServerErrors
+        expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: network
+        annotations:
+          summary: "High number of HTTP 5xx server errors"
+          description: "5xx error rate is {{ $value | humanizePercentage }}"
+
+      # ===== Backup Alerts =====
+
+      # Backup failure
+      - alert: BackupFailed
+        expr: time() - backup_last_success_timestamp > 86400
+        for: 1m
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "No successful backup in the last 24 hours"
+          description: "Last backup was more than 24 hours ago"
+
+      # Backup storage critical
+      - alert: BackupStorageCritical
+        expr: node_filesystem_avail_bytes{mountpoint="/mnt/backups"} / node_filesystem_size_bytes{mountpoint="/mnt/backups"} < 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "Backup storage is critically full"
+          description: "Only {{ $value | humanizePercentage }} backup storage remaining"
+
+      # ===== Business Logic Alerts =====
+
+      # High rate of failed authentications
+      - alert: HighAuthenticationFailureRate
+        expr: rate(authentication_failures_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failure rate is {{ $value }}/sec (threshold: 10/sec)"
+
+      # Suspicious API access patterns
+      - alert: SuspiciousAPIActivity
+        expr: rate(http_requests_total{status="401"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Suspicious API activity detected"
+          description: "High rate of unauthorized API access: {{ $value }}/sec"
+
+      # High database query count
+      - alert: HighDatabaseQueryLoad
+        expr: rate(mongodb_op_duration_seconds_bucket{le="+Inf"}[5m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High database query load"
+          description: "Query rate is {{ $value | humanize }}/sec"

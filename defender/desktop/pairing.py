@@ -1,0 +1,246 @@
+"""
+Pairing client for the Anuvadini Defender desktop app.
+
+Talks to the Anuvadini backend (the same server the attendance app uses) to run
+a WhatsApp-Web-style link:
+  1. create_session()  -> opens a pairing session, returns a QR to show
+  2. poll(pair_id)      -> is the phone done scanning yet?
+  3. finish(employee)   -> save the identity and hand off to the monitoring agent
+
+No password is ever typed here; the employee proves who they are from their
+already-signed-in phone, and the backend tells us who linked this PC.
+"""
+
+import base64
+import io
+import json
+import os
+import socket
+import urllib.request
+import urllib.error
+
+try:
+    import qrcode
+except Exception:  # pragma: no cover - qrcode is a build dependency
+    qrcode = None
+
+# Where the linked identity lives so the PC stays paired across restarts, and so
+# the monitoring agent (anuvadini_detector.agent) reads the same file.
+PROGRAMDATA_DIR = r"C:\ProgramData\AnuvadiniDetector"
+LOCALAPP_DIR = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "AnuvadiniDefender")
+CONFIG_NAME = "agent_config.json"
+
+DEFAULT_HOST = os.environ.get("ANUVADINI_SERVER_HOST", "127.0.0.1")
+NODE_PORT = os.environ.get("ANUVADINI_NODE_PORT", "5001")
+DEFENDER_PORT = os.environ.get("ANUVADINI_DEFENDER_PORT", "8055")
+AGENT_VERSION = "1.0.0"
+
+
+def _config_path() -> str:
+    """Prefer the protected ProgramData folder; fall back to the user's AppData."""
+    try:
+        os.makedirs(PROGRAMDATA_DIR, exist_ok=True)
+        probe = os.path.join(PROGRAMDATA_DIR, ".w")
+        with open(probe, "w") as f:
+            f.write("ok")
+        os.remove(probe)
+        return os.path.join(PROGRAMDATA_DIR, CONFIG_NAME)
+    except Exception:
+        os.makedirs(LOCALAPP_DIR, exist_ok=True)
+        return os.path.join(LOCALAPP_DIR, CONFIG_NAME)
+
+
+def read_config() -> dict:
+    for d in (PROGRAMDATA_DIR, LOCALAPP_DIR):
+        p = os.path.join(d, CONFIG_NAME)
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+    return {}
+
+
+def write_config(cfg: dict) -> str:
+    path = _config_path()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+    return path
+
+
+def machine_info(server_host: str) -> dict:
+    hostname = socket.gethostname()
+    try:
+        user = os.getlogin()
+    except Exception:
+        user = os.environ.get("USERNAME", "Employee")
+    ip = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+    return {"hostname": hostname, "ip": ip, "os": _os_label(), "deviceName": user, "agentVersion": AGENT_VERSION}
+
+
+def _os_label() -> str:
+    try:
+        import platform
+        return f"{platform.system()} {platform.release()}"
+    except Exception:
+        return "Unknown"
+
+
+def node_base(server_host: str) -> str:
+    host = (server_host or DEFAULT_HOST).strip()
+    if host.startswith("http://") or host.startswith("https://"):
+        return host.rstrip("/") + "/api"
+    return f"http://{host}:{NODE_PORT}/api"
+
+
+def defender_base(server_host: str) -> str:
+    host = (server_host or DEFAULT_HOST).strip()
+    if host.startswith("http://") or host.startswith("https://"):
+        # strip any port and use the Defender port on the same host
+        from urllib.parse import urlparse
+        h = urlparse(host).hostname or DEFAULT_HOST
+        return f"http://{h}:{DEFENDER_PORT}"
+    return f"http://{host}:{DEFENDER_PORT}"
+
+
+def _http_json(url: str, data: dict | None = None, timeout: float = 8.0) -> dict:
+    body = json.dumps(data).encode("utf-8") if data is not None else None
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+# Anuvadini logo (triangular A with nodes) embedded for QR center overlay
+_CENTER_LOGO_B64 = "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"
+
+def qr_data_uri(payload: str) -> str:
+    """Render `payload` as a QR PNG with the Anuvadini logo in the centre."""
+    if qrcode is None:
+        return ""
+    # ERROR_CORRECT_H = 30% redundancy — allows a ~20% centre logo safely
+    qr = qrcode.QRCode(
+        version=None, box_size=10, border=2,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+    )
+    qr.add_data(payload)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="#111827", back_color="white").convert("RGBA")
+    qr_w, qr_h = qr_img.size
+
+    try:
+        from PIL import Image, ImageDraw, ImageFilter
+
+        # ── logo ──────────────────────────────────────────────────────────────
+        raw = base64.b64decode(_CENTER_LOGO_B64)
+        logo = Image.open(io.BytesIO(raw)).convert("RGBA")
+
+        # Logo occupies ~15 % of QR width (safe for ERROR_CORRECT_H)
+        logo_size = max(int(qr_w * 0.15), 32)
+        logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
+
+        # ── anti-aliased circle via 4× supersampling ──────────────────────────
+        pad         = max(int(logo_size * 0.30), 8)   # white ring around logo
+        circle_size = logo_size + pad * 2
+        SS          = 4                                # supersampling factor
+
+        hi = circle_size * SS
+        canvas = Image.new("RGBA", (hi, hi), (0, 0, 0, 0))
+        d = ImageDraw.Draw(canvas)
+
+        # subtle drop shadow (offset 2 px → 8 px at SS)
+        shadow_off = SS * 2
+        d.ellipse(
+            [shadow_off, shadow_off, hi - 1, hi - 1],
+            fill=(0, 0, 0, 55),
+        )
+
+        # white filled circle
+        d.ellipse([0, 0, hi - shadow_off - 1, hi - shadow_off - 1],
+                  fill=(255, 255, 255, 255))
+
+        # thin accent ring (matches app green)
+        ring_w = SS * 2
+        d.ellipse(
+            [ring_w // 2, ring_w // 2,
+             hi - shadow_off - ring_w // 2 - 1,
+             hi - shadow_off - ring_w // 2 - 1],
+            outline=(26, 175, 114, 200), width=ring_w,
+        )
+
+        # downscale → smooth anti-aliased circle
+        circle = canvas.resize((circle_size + shadow_off // SS,
+                                 circle_size + shadow_off // SS),
+                                Image.LANCZOS)
+
+        # paste logo centred on white part of circle
+        logo_offset = pad
+        circle.paste(logo, (logo_offset, logo_offset), logo)
+
+        # ── composite onto QR ─────────────────────────────────────────────────
+        total = circle.size[0]
+        cx = (qr_w - total) // 2
+        cy = (qr_h - total) // 2
+        qr_img.paste(circle, (cx, cy), circle)
+
+    except Exception:
+        pass  # plain QR if PIL not available
+
+    buf = io.BytesIO()
+    qr_img.convert("RGB").save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def create_session(server_host: str) -> dict:
+    """Open a pairing session and return what the UI needs to show the QR."""
+    info = machine_info(server_host)
+    res = _http_json(f"{node_base(server_host)}/defender-pair/create", info)
+    if not res.get("success"):
+        raise RuntimeError(res.get("message", "Could not start pairing."))
+    return {
+        "pairId": res["pairId"],
+        "qrImage": qr_data_uri(res["qr"]),
+        "expiresAt": res.get("expiresAt"),
+        "pollMs": res.get("pollMs", 2000),
+        "device": info,
+    }
+
+
+def poll(server_host: str, pair_id: str) -> dict:
+    try:
+        return _http_json(f"{node_base(server_host)}/defender-pair/{pair_id}")
+    except urllib.error.URLError:
+        return {"success": False, "status": "offline"}
+
+
+def cancel(server_host: str, pair_id: str) -> None:
+    try:
+        _http_json(f"{node_base(server_host)}/defender-pair/cancel", {"pairId": pair_id})
+    except Exception:
+        pass
+
+
+def save_paired_identity(server_host: str, employee: dict, agent_token: str = "") -> str:
+    """Persist the linked identity so the monitoring agent runs as this employee."""
+    cfg = read_config()
+    cfg.update({
+        "server_host": server_host,
+        "server_url": defender_base(server_host),  # agent talks to the Defender service
+        "node_url": node_base(server_host),
+        "employee_id": employee.get("uid", ""),
+        "username": employee.get("name", ""),
+        "name": employee.get("name", ""),
+        "department": employee.get("department", "") or "General",
+        "organization": employee.get("organization", ""),
+        "org_name": employee.get("orgName", ""),
+        "agent_token": agent_token,
+        "paired": True,
+    })
+    return write_config(cfg)

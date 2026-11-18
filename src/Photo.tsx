@@ -1,0 +1,172 @@
+import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
+import React, { useState } from "react";
+import { View, Text, Pressable, StyleSheet, Image } from "react-native";
+import type { RootTabParamList } from "./navigation";
+import ImagePicker from "react-native-image-crop-picker";
+import { CustomColors } from "./colors";
+import FaceDetection from "@react-native-ml-kit/face-detection";
+
+// Define comprehensive type system for face detection
+type FrameDims = {
+  width: number;
+  height: number;
+};
+
+// Define specific error types for better error handling
+type PhotoError = {
+  readonly NO_FACE_DETECTED: "No face was detected in the image";
+  readonly PROCESSING_ERROR: "Error processing the image";
+  readonly PERMISSION_DENIED: "Camera permission was denied";
+  readonly INVALID_IMAGE: "Invalid image format or corrupted file";
+};
+
+const PhotoErrors: PhotoError = {
+  NO_FACE_DETECTED: "No face was detected in the image",
+  PROCESSING_ERROR: "Error processing the image",
+  PERMISSION_DENIED: "Camera permission was denied",
+  INVALID_IMAGE: "Invalid image format or corrupted file",
+} as const;
+
+type Props = BottomTabScreenProps<RootTabParamList, "Photo">;
+
+const PHOTO_SIZE: FrameDims = { width: 300, height: 400 };
+
+export const Photo: React.FC<Props> = () => {
+  const [screenState, setScreenState] = useState<
+    "initial" | "selecting" | "inferring" | "completed" | "error"
+  >("initial");
+  const [imagePath, setImagePath] = useState<string | undefined>();
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [faceCount, setFaceCount] = useState<number>(0);
+
+  const onClickSelectPhoto = async () => {
+    setScreenState("selecting");
+    try {
+      const image = await ImagePicker.openPicker({
+        mediaType: "photo",
+        width: PHOTO_SIZE.width,
+        height: PHOTO_SIZE.height,
+      });
+
+      setImagePath(image.path);
+      setScreenState("inferring");
+
+      // MLKit (Google ML Kit) on-device face detection on the still image.
+      const uri = image.path.startsWith("file://")
+        ? image.path
+        : `file://${image.path}`;
+      const faces = await FaceDetection.detect(uri, {
+        performanceMode: "accurate",
+        landmarkMode: "all",
+        classificationMode: "all",
+      });
+
+      if (!faces || faces.length <= 0) {
+        setErrorMessage(PhotoErrors.NO_FACE_DETECTED);
+        setScreenState("error");
+        return;
+      }
+
+      setFaceCount(faces.length);
+      setScreenState("completed");
+    } catch (e) {
+      console.error(e);
+      setErrorMessage(
+        e instanceof Error ? e.message : PhotoErrors.PROCESSING_ERROR,
+      );
+      setScreenState("error");
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      {screenState === "initial" && (
+        <Pressable style={styles.selectButton} onPress={onClickSelectPhoto}>
+          <Text style={styles.selectButtonText}>Select a photo</Text>
+        </Pressable>
+      )}
+      {screenState === "completed" && (
+        <>
+          <View style={styles.photoContainer}>
+            <Image source={{ uri: imagePath }} style={styles.photo} />
+          </View>
+          <Text style={styles.resultText}>
+            ✅ {faceCount} face{faceCount === 1 ? "" : "s"} detected
+          </Text>
+          <Pressable style={styles.selectButton} onPress={onClickSelectPhoto}>
+            <Text style={styles.selectButtonText}>Select a new photo</Text>
+          </Pressable>
+        </>
+      )}
+      {screenState === "error" && (
+        <>
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>Error!</Text>
+            <Text style={styles.errorInfoText}>{errorMessage}</Text>
+          </View>
+          <Pressable style={styles.selectButton} onPress={onClickSelectPhoto}>
+            <Text style={styles.selectButtonText}>Try again</Text>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: CustomColors.backgroundGrayBlue,
+  },
+  selectButton: {
+    backgroundColor: CustomColors.elecBlue,
+    padding: 15.5,
+    paddingRight: 25,
+    paddingLeft: 25,
+    borderRadius: 5,
+  },
+  selectButtonText: {
+    fontSize: 20,
+    color: "black",
+    fontWeight: "bold",
+  },
+  photoContainer: {
+    position: "relative",
+    width: PHOTO_SIZE.width,
+    height: PHOTO_SIZE.height,
+  },
+  photo: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  resultText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: CustomColors.teal,
+    marginVertical: 16,
+  },
+  errorText: {
+    fontSize: 25,
+    color: "black",
+    bottom: 10,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  errorInfoText: {
+    fontSize: 15.5,
+    color: CustomColors.teal,
+  },
+  errorBox: {
+    backgroundColor: CustomColors.lightGray,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CustomColors.teal,
+    bottom: 25,
+  },
+});

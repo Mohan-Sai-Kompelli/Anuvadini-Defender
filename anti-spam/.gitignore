@@ -1,0 +1,22 @@
+# Python virtual environment (1.6 GB, regenerate with: pip install -r requirements.txt)
+venv/
+.venv/
+env/
+
+# Python bytecode / build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Scratch test images (not referenced by code)
+fake.jpg
+fake_result.jpg
+testing3.jpg
+
+# Editors / OS
+.idea
+.vscode/
+.DS_Store
+Thumbs.db
